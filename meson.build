@@ -961,6 +961,7 @@ shared_c_args = ['-DGLEW_NO_GLU']
 shared_objcpp_args = []
 shared_objc_args = []
 engine_link_args = []
+engine_link_depends = []
 linux_executable_pie = false
 linux_module_link_hardening_args = []
 linux_cross_dso_sanitizer_cpp_args = []
@@ -1051,6 +1052,9 @@ if host_system == 'emscripten'
     '-sALLOW_MEMORY_GROWTH=1',
     '-sEXIT_RUNTIME=0',
   ]
+  emscripten_gl_dynamic_link_fix = files('tools/build/emscripten_gl_dynamic_link_fix.js')
+  engine_link_args += '--post-js=' + emscripten_gl_dynamic_link_fix[0].full_path()
+  engine_link_depends += emscripten_gl_dynamic_link_fix
 endif
 
 if use_sdl3_backend
@@ -1278,6 +1282,7 @@ if build_engine
       cpp_pch: pch_headers,
       win_subsystem: 'windows',
       link_args: engine_link_args,
+      link_depends: engine_link_depends,
       install: true,
       install_dir: install_root_dir,
     )
@@ -1294,6 +1299,7 @@ if build_engine
       objc_args: engine_objc_args,
       cpp_pch: pch_headers,
       link_args: engine_link_args,
+      link_depends: engine_link_depends,
       install: true,
       install_dir: install_root_dir,
     )
@@ -1308,6 +1314,7 @@ if build_engine
       c_args: engine_c_args,
       cpp_pch: pch_headers,
       link_args: engine_link_args,
+      link_depends: engine_link_depends,
       pie: linux_executable_pie,
       install: true,
       install_dir: install_root_dir,
@@ -1355,6 +1362,7 @@ if build_engine
         cpp_pch: pch_headers,
         win_subsystem: 'windows',
         link_args: engine_link_args,
+        link_depends: engine_link_depends,
         install: true,
         install_dir: install_root_dir,
       )
@@ -1371,6 +1379,7 @@ if build_engine
         objc_args: dedicated_objc_args,
         cpp_pch: pch_headers,
         link_args: engine_link_args,
+        link_depends: engine_link_depends,
         install: true,
         install_dir: install_root_dir,
       )
@@ -1385,6 +1394,7 @@ if build_engine
         c_args: dedicated_c_args,
         cpp_pch: pch_headers,
         link_args: engine_link_args,
+        link_depends: engine_link_depends,
         pie: linux_executable_pie,
         install: true,
         install_dir: install_root_dir,

@@ -5881,7 +5881,9 @@ static const char *openQ4_SelectGameModuleBaseName( void ) {
 #endif
 }
 
-#if defined( _M_X64 ) || defined( __x86_64__ )
+#if defined( __EMSCRIPTEN__ )
+	#define OPENQ4_MODULE_ARCH_TAG "wasm32"
+#elif defined( _M_X64 ) || defined( __x86_64__ )
 	#define OPENQ4_MODULE_ARCH_TAG "x64"
 #elif defined( _M_IX86 ) || defined( __i386__ )
 	#define OPENQ4_MODULE_ARCH_TAG "x86"

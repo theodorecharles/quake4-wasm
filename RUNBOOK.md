@@ -1,6 +1,6 @@
 # quake4-wasm implementation runbook
 
-Read `/home/ted/Development/WASM_PORTS_RUNBOOK.md` first. It defines shared browser-shell, asset, lifecycle, graphics, input, Docker, test, and coordination rules. This file defines the Quake 4-specific implementation path.
+Read `/home/ted/Development/wasm/RUNBOOK.md` first. It defines shared browser-shell, asset, lifecycle, graphics, input, Docker, test, and coordination rules. This file defines the Quake 4-specific implementation path.
 
 ## Objective
 
@@ -45,6 +45,21 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 
 - `scripts/build-docker.sh` builds `theodorecharles/quake4-wasm:checkpoint` for `linux/amd64` from the four ignored web artifacts only. It is a browser-client checkpoint, not a public release.
 - It deliberately excludes retail PK4/Pak data and all proprietary Steam paths. The SDK-derived game-library gate is owner-approved for this exact checkpoint; renderer/audio parity review and browser runtime tests remain separate claims.
+
+### Native-source rebuild and Chrome smoke (2026-08-14)
+
+- A clean relocated Meson cache rebuilt all 820 Emscripten targets with
+  Emscripten 6.0.6. The engine, SP side module, and MP side module passed
+  JavaScript/WASM-header validation in Chrome.
+- The engine now labels Emscripten modules as `wasm32`, matching the staged
+  `game-sp_wasm32.wasm` and `game-mp_wasm32.wasm` files instead of requesting
+  `unknown` modules.
+- The unauthenticated HTTP/DAV retail-data uploader was removed. Owner PK4s
+  remain outside HTTP, Git, and image layers.
+- Launching the engine probe blocked the Chrome page thread before actionable
+  initialization. The launcher disables that control until the native loop and
+  Emscripten-visible PK4 filesystem are repaired. Artifact compilation is a
+  pass; browser engine initialization is a fail, not a gameplay claim.
 
 ## Downstream-only rule
 

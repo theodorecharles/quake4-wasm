@@ -20,9 +20,9 @@
 <main>
   <h1>Quake 4 WASM client checkpoint</h1>
   <p class="warn">This image contains the Emscripten client and SP/MP WASM modules, but no retail <code>q4base</code> data.</p>
-  <p>Use the validation button to verify the published artifacts. Launching the client is an engine-initialization probe; it does not claim campaign, multiplayer, or browser-playability parity.</p>
+  <p>Use the validation button to verify the published artifacts. The engine probe is disabled because the current native loop blocks the browser before a usable frame; this checkpoint does not claim campaign, multiplayer, or browser playability.</p>
   <button id="validate" type="button">Validate artifacts</button>
-  <button id="launch" type="button">Launch client probe</button>
+  <button id="launch" type="button" disabled>Engine probe blocked</button>
   <ul id="results" aria-live="polite"></ul>
   <canvas id="canvas" width="1280" height="720" tabindex="0"></canvas>
   <pre id="log" aria-live="polite"></pre>

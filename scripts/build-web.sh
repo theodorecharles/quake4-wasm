@@ -19,10 +19,15 @@ fi
 
 if [[ -n "${OPENQ4_MESON:-}" ]]; then
 	meson_cmd=("${OPENQ4_MESON}")
-elif [[ -x "${repo_root}/.tmp/q4wasm-tools/bin/meson" ]]; then
+elif command -v meson >/dev/null 2>&1; then
+	meson_cmd=(meson)
+elif [[ -x "${repo_root}/.tmp/q4wasm-tools-wasm/bin/meson" ]]; then
+	meson_cmd=("${repo_root}/.tmp/q4wasm-tools-wasm/bin/meson")
+elif [[ -x "${repo_root}/.tmp/q4wasm-tools/bin/meson" ]] && "${repo_root}/.tmp/q4wasm-tools/bin/meson" --version >/dev/null 2>&1; then
 	meson_cmd=("${repo_root}/.tmp/q4wasm-tools/bin/meson")
 else
-	meson_cmd=(meson)
+	echo "Meson is unavailable. Install Meson or set OPENQ4_MESON to its executable path." >&2
+	exit 1
 fi
 
 export EMSDK_QUIET=1
