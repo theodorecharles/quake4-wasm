@@ -2,14 +2,19 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-emsdk_root="${Q4WASM_EMSDK:-/home/ted/emsdk}"
+emsdk_root="${Q4WASM_EMSDK:-${EMSDK_DIR:-}}"
 jobs="${JOBS:-2}"
 gamelibs_root="${OPENQ4_GAMELIBS_REPO:-}"
 build_dir="${Q4WASM_WEB_BUILD_DIR:-${repo_root}/build/web-meson}"
 web_dir="${Q4WASM_WEB_DIR:-${repo_root}/build/web}"
 
-if [[ ! -f "${emsdk_root}/emsdk_env.sh" ]]; then
-	echo "Emscripten environment not found: ${emsdk_root}/emsdk_env.sh" >&2
+if command -v emcc >/dev/null 2>&1 && command -v em++ >/dev/null 2>&1; then
+	:
+elif [[ -n "${emsdk_root}" && -f "${emsdk_root}/emsdk_env.sh" ]]; then
+	export EMSDK_QUIET=1
+	source "${emsdk_root}/emsdk_env.sh"
+else
+	echo "Activate Emscripten first, or set Q4WASM_EMSDK/EMSDK_DIR to an emsdk checkout." >&2
 	exit 1
 fi
 if [[ -z "${gamelibs_root}" || ! -d "${gamelibs_root}/src/game" || ! -d "${gamelibs_root}/src/mpgame" ]]; then
@@ -30,8 +35,6 @@ else
 	exit 1
 fi
 
-export EMSDK_QUIET=1
-source "${emsdk_root}/emsdk_env.sh"
 export OPENQ4_GAMELIBS_REPO="${gamelibs_root}"
 
 meson_args=(

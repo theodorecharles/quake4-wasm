@@ -67,3 +67,6 @@ runtime/
 artifacts/runtime/
 *.pk4
 *.PK4
+
+# Locally generated from owner-supplied retail font atlases. Never publish.
+content/baseoq4/pak0/fonts/*.ttf

@@ -22,6 +22,13 @@ Retail `q4base` files are user-supplied runtime data. They must remain outside G
 
 Release gate: inspect every package and container layer and reject the release if it contains retail PK4s, retail executables or libraries, CD keys, saves, profiles, or copied Steam installation data.
 
+The seven optional TrueType faces produced by `tools/assets/fonts/` trace the
+retail bitmap atlases. They are therefore owner-local generated data, not
+repository-authored content. This downstream removes them from Git, ignores
+future generated `.ttf` outputs, and relies on the engine's retail bitmap-font
+fallback unless an owner generates the faces locally. Do not publish those
+generated fonts in source archives, web bundles, containers, or releases.
+
 ### Repository-authored content and third-party dependencies
 
 The openQ4 runtime packs and each linked dependency have their own provenance and notice requirements. Build success does not establish that a combined binary or web bundle has a complete notice set.
@@ -35,7 +42,7 @@ Release gate: generate an inventory from the exact staged payload, map every eng
 - Those statements are an engineering evidence record, not a legal interpretation. In particular, this document does not decide whether these compiled WebAssembly game modules qualify as the EULA's permitted New Creations, whether a Docker Hub publication satisfies every condition, or whether any additional third-party notice is required.
 - The exact local Emscripten staging manifest records GameLibs commit `0c9c121ff337b1c6df129ecedcfe569e7c50c332`, `gameLibsGitDirty: false`, `fileCount: 1361`, and the ignored source root `.tmp/pinned-gamelibs`. The selected checkout's `EULA.Development Kit.rtf` has SHA-256 `d1f76da23b9ea17dc27773ad183cab74344c299c071f9b6b58c2e337e440b1a2`. The content-preserving tracked delivery copy [`docs/QUAKE4-SDK-EULA.rtf`](QUAKE4-SDK-EULA.rtf) has SHA-256 `a32ff9062802586b962d9f6a582b2f7b407e61b27b4eb439c812b8955f9e9bfe` and is copied into the image at `/QUAKE4-SDK-EULA.rtf`. The browser build's Emscripten compatibility edits are generated only in the ignored staging tree and are not written back to that checkout.
 - Owner distribution decision recorded 2026-08-14: the owner authorized publishing the compiled SP/MP GameLibs modules from the pinned revision in the intended Docker Hub image, with the accompanying EULA included and all retail `q4base` data kept outside Git, Docker layers, and release artifacts. This records the owner's decision and engineering constraints; it is not legal advice or a conclusion about any separate commercial-contract requirement.
-- The current checkpoint image includes the compiled SP/MP modules, the engine license, the corresponding-source offer, and the accompanying SDK EULA. Renderer/audio parity and interactive browser testing remain separate product gates.
+- The current checkpoint image includes the compiled SP/MP modules, the engine license, the corresponding-source offer, and the accompanying SDK EULA. It contains neither retail-derived TrueType outputs nor retail PK4 data. Renderer/audio parity and interactive browser testing remain separate product gates.
 
 Decision status: OWNER-APPROVED FOR THE INTENDED DOCKER HUB IMAGE. Reopen this gate if the GameLibs revision, EULA, distribution scope, or retail-data boundary changes.
 

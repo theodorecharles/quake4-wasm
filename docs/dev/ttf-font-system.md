@@ -1,11 +1,17 @@
 # TrueType font system
 
+> Downstream browser-port note: the generated `.ttf` files are deliberately
+> not tracked or distributed because their outlines are derived from the
+> owner's retail bitmap atlases. The tools remain available for private local
+> generation. Without local `.ttf` files, the engine automatically uses the
+> owner-supplied bitmap fonts from the retail PK4s.
+
 openQ4 can render GUI text from scalable TrueType faces instead of the retail
 Quake 4 bitmap atlases. This document covers both halves: the generator that
 builds the font files, and the engine path that draws with them.
 
-This is the **default** path as of this release. `r_useTrueTypeFonts 0` returns
-to the bitmap atlases, byte-for-byte unchanged, and is the fallback whenever the
+`r_useTrueTypeFonts 0` returns to the bitmap atlases, byte-for-byte unchanged,
+and that path is also the automatic fallback whenever the locally generated
 `.ttf` files are absent.
 
 ## Why
@@ -18,7 +24,8 @@ resolution the display actually uses, so text stays crisp.
 
 ## The font files
 
-`content/baseoq4/pak0/fonts/*.ttf` — one face per retail bitmap font:
+An owner may locally generate `content/baseoq4/pak0/fonts/*.ttf` — one face per
+retail bitmap font. This output directory is ignored in the downstream repo:
 
 | File | Family | Notes |
 | --- | --- | --- |
