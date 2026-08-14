@@ -43,7 +43,7 @@
       "pwa": {
         "name": "Quake 4",
         "shortName": "Quake 4",
-        "description": "Quake 4 single-player in the browser, using owner-provided game data.",
+        "description": "Quake 4 single-player in the browser.",
         "themeColor": "#5f180d",
         "backgroundColor": "#000000",
         "icons": [
@@ -59,7 +59,7 @@
       "pwa": {
         "name": "Quake 4 Multiplayer",
         "shortName": "Quake 4 MP",
-        "description": "Quake 4 multiplayer in the browser, using owner-provided game data.",
+        "description": "Quake 4 multiplayer in the browser.",
         "themeColor": "#5f180d",
         "backgroundColor": "#000000",
         "icons": [
