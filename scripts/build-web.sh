@@ -63,15 +63,22 @@ cp "${build_dir}/openQ4-client_wasm32.js" "${web_dir}/openQ4-client_wasm32.js"
 cp "${build_dir}/openQ4-client_wasm32.wasm" "${web_dir}/openQ4-client_wasm32.wasm"
 cp "${build_dir}/baseoq4/game-sp_wasm32.wasm" "${web_dir}/baseoq4/game-sp_wasm32.wasm"
 cp "${build_dir}/baseoq4/game-mp_wasm32.wasm" "${web_dir}/baseoq4/game-mp_wasm32.wasm"
+cp "${build_dir}/baseoq4/pak0.pk4" "${web_dir}/baseoq4/pak0.pk4"
+cp "${repo_root}/docker/index.html" "${web_dir}/index.html"
+cp "${repo_root}/docker/q4-worker.js" "${web_dir}/q4-worker.js"
 
 node --check "${web_dir}/openQ4-client_wasm32.js"
 test "$(od -An -tx1 -N4 "${web_dir}/openQ4-client_wasm32.wasm" | tr -d ' \n')" = "0061736d"
 test "$(od -An -tx1 -N4 "${web_dir}/baseoq4/game-sp_wasm32.wasm" | tr -d ' \n')" = "0061736d"
 test "$(od -An -tx1 -N4 "${web_dir}/baseoq4/game-mp_wasm32.wasm" | tr -d ' \n')" = "0061736d"
+node --check "${web_dir}/q4-worker.js"
+cmp "${repo_root}/docker/index.html" "${web_dir}/index.html"
+cmp "${repo_root}/docker/q4-worker.js" "${web_dir}/q4-worker.js"
 
 printf 'Built retail-data-free Quake 4 web checkpoint:\n'
 printf '  %s (%s bytes)\n' "${web_dir}/openQ4-client_wasm32.js" "$(stat -c '%s' "${web_dir}/openQ4-client_wasm32.js")"
 printf '  %s (%s bytes)\n' "${web_dir}/openQ4-client_wasm32.wasm" "$(stat -c '%s' "${web_dir}/openQ4-client_wasm32.wasm")"
 printf '  %s (%s bytes)\n' "${web_dir}/baseoq4/game-sp_wasm32.wasm" "$(stat -c '%s' "${web_dir}/baseoq4/game-sp_wasm32.wasm")"
 printf '  %s (%s bytes)\n' "${web_dir}/baseoq4/game-mp_wasm32.wasm" "$(stat -c '%s' "${web_dir}/baseoq4/game-mp_wasm32.wasm")"
+printf '  %s (%s bytes)\n' "${web_dir}/baseoq4/pak0.pk4" "$(stat -c '%s' "${web_dir}/baseoq4/pak0.pk4")"
 printf 'Retail q4base PK4s are not copied; browser data remains user-supplied.\n'

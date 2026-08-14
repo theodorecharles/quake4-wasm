@@ -3,82 +3,177 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Quake 4 WASM client checkpoint</title>
+<title>Quake 4 — WebAssembly</title>
 <style>
-  :root { color-scheme: dark; font: 16px/1.5 system-ui,sans-serif; }
-  body { max-width: 58rem; margin: 3rem auto; padding: 0 1.25rem; background: #111; color: #eee; }
-  button { margin: .4rem .5rem .8rem 0; padding: .65rem .9rem; font: inherit; }
-  canvas { display: block; width: 100%; max-width: 960px; aspect-ratio: 16 / 9; background: #000; }
-  code { color: #b9e6ff; }
-  .warn { color: #ffd166; }
-  .pass { color: #72db8c; }
-  .fail { color: #ff7b72; }
-  pre { min-height: 5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  :root { color-scheme: dark; font: 15px/1.45 system-ui,sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; background: #050608; color: #eee; }
+  body { display: grid; place-items: center; overflow: hidden; }
+  main { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; background: #000; }
+  canvas { width: 100%; height: 100%; display: block; background: #000; outline: none; }
+  #gate { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 1rem; background: rgb(5 6 8 / .94); }
+  #gate[hidden] { display: none; }
+  section { width: min(42rem, 100%); border: 1px solid #65543f; background: #15130f; padding: 1.25rem; }
+  h1 { margin: 0 0 .65rem; letter-spacing: .08em; text-transform: uppercase; }
+  p { color: #c9c1b5; }
+  .actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+  button, select { padding: .65rem .8rem; border: 1px solid #8c7355; background: #2e261d; color: #fff; font: inherit; }
+  button:disabled { opacity: .5; }
+  #error { color: #ff9d8e; white-space: pre-wrap; }
+  #status { position: absolute; inset: auto 0 0; z-index: 3; padding: .45rem .7rem; background: rgb(0 0 0 / .75); }
+  #log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: .75rem; overflow: auto; color: #bbb; background: #050608; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Quake 4 WASM client checkpoint</h1>
-  <p class="warn">This image contains the Emscripten client and SP/MP WASM modules, but no retail <code>q4base</code> data.</p>
-  <p>Use the validation button to verify the published artifacts. The engine probe is disabled because the current native loop blocks the browser before a usable frame; this checkpoint does not claim campaign, multiplayer, or browser playability.</p>
-  <button id="validate" type="button">Validate artifacts</button>
-  <button id="launch" type="button" disabled>Engine probe blocked</button>
-  <ul id="results" aria-live="polite"></ul>
-  <canvas id="canvas" width="1280" height="720" tabindex="0"></canvas>
+  <canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Quake 4 game canvas"></canvas>
   <pre id="log" aria-live="polite"></pre>
+  <div id="gate">
+    <section>
+      <h1>Quake 4</h1>
+      <p>Select the <code>q4base</code> folder from your legally owned Quake 4 installation. PK4 files stay local: the browser passes read-only file objects directly to the game worker and never uploads them.</p>
+      <label>Mode
+        <select id="mode">
+          <option value="sp">Single Player</option>
+          <option value="mp">Multiplayer</option>
+        </select>
+      </label>
+      <p id="error" role="alert"></p>
+      <div class="actions">
+        <button id="choose" type="button">Choose q4base folder</button>
+        <button id="choose-files" type="button">Choose folder (compatibility)</button>
+        <button id="resume" type="button" hidden>Resume saved folder</button>
+        <button id="forget" type="button">Forget folder permission</button>
+      </div>
+    </section>
+  </div>
+  <div id="status">Waiting for owner data…</div>
+  <input id="fallback" type="file" webkitdirectory multiple hidden>
 </main>
 <script>
-  const results = document.querySelector('#results');
+(() => {
+  'use strict';
+  const REQUIRED = new Map([
+    ['pak001.pk4', 223947812], ['pak002.pk4', 220639087], ['pak003.pk4', 220452548],
+    ['pak004.pk4', 221972032], ['pak005.pk4', 224006192], ['pak006.pk4', 220656388],
+    ['pak007.pk4', 221657190], ['pak008.pk4', 220516301], ['pak009.pk4', 220608314],
+    ['pak010.pk4', 221232656], ['pak011.pk4', 221047953], ['pak012.pk4', 75481176],
+    ['pak013.pk4', 17391934], ['pak014.pk4', 21404183], ['pak015.pk4', 512986],
+    ['pak016.pk4', 45360121], ['pak017.pk4', 17759], ['pak018.pk4', 80946],
+    ['pak019.pk4', 116026927], ['pak020.pk4', 32710], ['pak021.pk4', 962643],
+    ['pak022.pk4', 42035], ['zpak_english.pk4', 65658433]
+  ]);
+  const DB_NAME = 'quake4-owner-data';
+  const STORE = 'handles';
+  const gate = document.querySelector('#gate');
+  const canvas = document.querySelector('#canvas');
   const log = document.querySelector('#log');
-  const report = (message, passed) => {
-    const item = document.createElement('li');
-    item.className = passed ? 'pass' : 'fail';
-    item.textContent = `${passed ? 'PASS' : 'FAIL'}: ${message}`;
-    results.append(item);
-  };
-  const wasmMagic = bytes => bytes.length >= 4 &&
-    bytes[0] === 0x00 && bytes[1] === 0x61 && bytes[2] === 0x73 && bytes[3] === 0x6d;
-  const checkWasm = async path => {
-    const response = await fetch(path, { cache: 'no-store', headers: { Range: 'bytes=0-3' } });
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return response.ok && wasmMagic(bytes);
-  };
+  const status = document.querySelector('#status');
+  const error = document.querySelector('#error');
+  const choose = document.querySelector('#choose');
+  const chooseFiles = document.querySelector('#choose-files');
+  const resume = document.querySelector('#resume');
+  const forget = document.querySelector('#forget');
+  const fallback = document.querySelector('#fallback');
+  let started = false;
 
-  document.querySelector('#validate').addEventListener('click', async () => {
-    results.replaceChildren();
+  function openDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+  async function storedHandle(nextHandle) {
+    const db = await openDatabase();
     try {
-      const jsResponse = await fetch('/openQ4-client_wasm32.js', { method: 'HEAD', cache: 'no-store' });
-      report('Emscripten JavaScript glue is served', jsResponse.ok);
-      for (const path of [
-        '/openQ4-client_wasm32.wasm',
-        '/baseoq4/game-sp_wasm32.wasm',
-        '/baseoq4/game-mp_wasm32.wasm'
-      ]) {
-        report(`${path} has a valid WebAssembly header`, await checkWasm(path));
-      }
-      report('retail q4base data was not requested by this validation', true);
-    } catch (error) {
-      report(error.message, false);
+      const tx = db.transaction(STORE, nextHandle === undefined ? 'readonly' : 'readwrite');
+      const request = nextHandle === undefined ? tx.objectStore(STORE).get('q4base') : tx.objectStore(STORE).put(nextHandle, 'q4base');
+      return await new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } finally { db.close(); }
+  }
+  async function clearHandle() {
+    const db = await openDatabase();
+    try {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete('q4base');
+      await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    } finally { db.close(); }
+  }
+  async function filesFromHandle(handle) {
+    const files = [];
+    for await (const entry of handle.values()) {
+      if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.pk4')) files.push(await entry.getFile());
     }
-  });
-
-  document.querySelector('#launch').addEventListener('click', () => {
-    if (window.__openQ4ClientLoaded) return;
-    window.__openQ4ClientLoaded = true;
-    log.textContent = 'Loading openQ4-client_wasm32.js…\n';
-    window.Module = {
-      canvas: document.querySelector('#canvas'),
-      arguments: [],
-      locateFile: path => `/${path}`,
-      print: line => { log.textContent += `${line}\n`; },
-      printErr: line => { log.textContent += `ERR: ${line}\n`; },
-      onRuntimeInitialized: () => { log.textContent += 'WASM runtime initialized.\n'; }
+    return files;
+  }
+  function validate(files) {
+    const byName = new Map(files.map(file => [file.name, file]));
+    const failures = [];
+    for (const [name, size] of REQUIRED) {
+      const file = byName.get(name);
+      if (!file) failures.push(`missing ${name}`);
+      else if (file.size !== size) failures.push(`${name}: ${file.size} bytes, expected ${size}`);
+    }
+    if (failures.length) throw new Error(`This is not the expected Steam q4base set:\n${failures.join('\n')}`);
+    return files.filter(file => file.name.toLowerCase().endsWith('.pk4'));
+  }
+  async function launch(files) {
+    if (started) return;
+    started = true;
+    choose.disabled = chooseFiles.disabled = resume.disabled = true;
+    status.textContent = 'Starting Quake 4 worker…';
+    error.textContent = '';
+    gate.hidden = true;
+    log.textContent = '';
+    const worker = new Worker('q4-worker.js');
+    const offscreen = canvas.transferControlToOffscreen();
+    worker.onmessage = event => {
+      const message = event.data || {};
+      if (message.type === 'log') log.textContent += `${message.text}\n`;
+      if (message.type === 'status') status.textContent = message.text;
+      if (message.type === 'error') {
+        status.textContent = 'Quake 4 stopped';
+        log.textContent += `ERROR: ${message.text}\n`;
+      }
     };
-    const script = document.createElement('script');
-    script.src = '/openQ4-client_wasm32.js';
-    script.onerror = () => { log.textContent += 'ERR: failed to load Emscripten glue.\n'; };
-    document.head.append(script);
+    worker.onerror = event => { status.textContent = `Worker failed: ${event.message}`; };
+    worker.postMessage({ canvas: offscreen, files, mode: document.querySelector('#mode').value }, [offscreen]);
+  }
+  async function accept(files) {
+    try { await launch(validate(Array.from(files))); }
+    catch (reason) { error.textContent = reason instanceof Error ? reason.message : String(reason); }
+  }
+
+  choose.addEventListener('click', async () => {
+    if (!window.showDirectoryPicker) { fallback.click(); return; }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      try { await storedHandle(handle); }
+      catch (reason) { console.warn('Could not remember q4base folder permission', reason); }
+      await accept(await filesFromHandle(handle));
+    } catch (reason) { if (!reason || reason.name !== 'AbortError') error.textContent = String(reason); }
   });
+  chooseFiles.addEventListener('click', () => fallback.click());
+  fallback.addEventListener('change', () => { if (fallback.files.length) accept(fallback.files); });
+  resume.addEventListener('click', async () => {
+    try {
+      const handle = await storedHandle();
+      if ((await handle.requestPermission({ mode: 'read' })) !== 'granted') return;
+      await accept(await filesFromHandle(handle));
+    } catch (reason) { error.textContent = String(reason); }
+  });
+  forget.addEventListener('click', async () => { await clearHandle(); resume.hidden = true; status.textContent = 'Saved folder permission removed.'; });
+  storedHandle().then(async handle => {
+    if (!handle) return;
+    resume.hidden = false;
+    if ((await handle.queryPermission({ mode: 'read' })) === 'granted') await accept(await filesFromHandle(handle));
+  }).catch(reason => { console.warn('Could not restore q4base handle', reason); });
+})();
 </script>
 </body>
 </html>

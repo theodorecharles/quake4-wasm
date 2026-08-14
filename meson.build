@@ -1043,14 +1043,18 @@ if host_system == 'emscripten'
   # available for the separately-built game WASM modules.
   engine_link_args += [
     '-sUSE_SDL=3',
+    '-sENVIRONMENT=worker',
+    '-sOFFSCREENCANVAS_SUPPORT=1',
     '-sUSE_WEBGL2=1',
     '-sMIN_WEBGL_VERSION=2',
     '-sMAX_WEBGL_VERSION=2',
     '-sLEGACY_GL_EMULATION=1',
     '-sMAIN_MODULE=1',
     '-sFORCE_FILESYSTEM=1',
+    '-sEXPORTED_RUNTIME_METHODS=FS,WORKERFS',
     '-sALLOW_MEMORY_GROWTH=1',
     '-sEXIT_RUNTIME=0',
+    '-lworkerfs.js',
   ]
   emscripten_gl_dynamic_link_fix = files('tools/build/emscripten_gl_dynamic_link_fix.js')
   engine_link_args += '--post-js=' + emscripten_gl_dynamic_link_fix[0].full_path()

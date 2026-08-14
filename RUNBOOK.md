@@ -1,6 +1,6 @@
 # quake4-wasm implementation runbook
 
-Read `/home/ted/Development/wasm/RUNBOOK.md` first. It defines shared browser-shell, asset, lifecycle, graphics, input, Docker, test, and coordination rules. This file defines the Quake 4-specific implementation path.
+Read `../RUNBOOK.md` first. It defines shared browser-shell, asset, lifecycle, graphics, input, Docker, test, and coordination rules. This file defines the Quake 4-specific implementation path.
 
 ## Objective
 
@@ -47,20 +47,31 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - `scripts/build-docker.sh` builds `theodorecharles/quake4-wasm:checkpoint` for `linux/amd64` from the four ignored web artifacts only. It is a browser-client checkpoint, not a public release.
 - It deliberately excludes retail PK4/Pak data and all proprietary Steam paths. The SDK-derived game-library gate is owner-approved for this exact checkpoint; renderer/audio parity review and browser runtime tests remain separate claims.
 
-### Native-source rebuild and Chrome smoke (2026-08-14)
+### Native-source worker rebuild and Chromium smoke (2026-08-14)
 
-- A clean relocated Meson cache rebuilt all 820 Emscripten targets with
-  Emscripten 6.0.6. The engine, SP side module, and MP side module passed
-  JavaScript/WASM-header validation in Chrome.
-- The engine now labels Emscripten modules as `wasm32`, matching the staged
-  `game-sp_wasm32.wasm` and `game-mp_wasm32.wasm` files instead of requesting
-  `unknown` modules.
-- The unauthenticated HTTP/DAV retail-data uploader was removed. Owner PK4s
-  remain outside HTTP, Git, and image layers.
-- Launching the engine probe blocked the Chrome page thread before actionable
-  initialization. The launcher disables that control until the native loop and
-  Emscripten-visible PK4 filesystem are repaired. Artifact compilation is a
-  pass; browser engine initialization is a fail, not a gameplay claim.
+- `./scripts/build-web.sh` rebuilt 761 current targets with Emscripten 6.0.6 and
+  staged `openQ4-client_wasm32.js` (1,333,357 bytes), its WASM engine
+  (10,208,384 bytes), SP (5,216,308 bytes), MP (6,035,187 bytes), and the
+  source-derived `baseoq4/pak0.pk4` (4,285,437 bytes).
+- The engine runs in a dedicated worker with an `OffscreenCanvas`; the existing
+  `emscripten_set_main_loop_arg` frame callback therefore remains cooperative
+  and can no longer block the browser page thread.
+- The launcher asks the owner to select `q4base`. It validates the installed
+  Steam pack sizes and passes browser `File` objects into read-only `WORKERFS`.
+  Large retail PK4s are read synchronously and lazily inside the worker; they
+  are not copied into linear memory, IndexedDB, HTTP, Git, or an image layer.
+  Chrome can retain the user-granted directory handle in IndexedDB, so a hard
+  refresh can resume without repackaging game data. A visible compatibility
+  folder input covers browsers without the File System Access API.
+- The worker mounts the source-derived OpenQ4 pack and selected SP/MP side
+  module in MEMFS, then points the native filesystem at `/owner-data/q4base`.
+  SP and MP remain separate runtime choices and are not conflated in status.
+- JavaScript syntax, all three WASM headers, generated WORKERFS linkage,
+  launcher/worker staging equality, and a retail-package allowlist passed.
+  Chromium rendered the owner-data gate and both folder controls. Automated
+  owner-folder injection could not proceed because the installed ChatGPT
+  Chrome extension lacks its optional **Allow access to file URLs** permission;
+  no engine/title/gameplay claim is made from that blocked smoke step.
 
 ## Downstream-only rule
 
@@ -134,7 +145,12 @@ Create shader translation/variants that are valid GLSL ES 3.00. Audit invalid en
 
 Validate the actual Steam `q4base/*.pk4` set locally and generate an ignored manifest. Do not publish, commit, or bake these PK4s into Docker. The owner supplies `/data/q4base` or selects local files in-browser.
 
-Quake 4 data is multi-gigabyte. Build a lazy read-only PK4 filesystem backed by range/chunk requests and IndexedDB/OPFS. Index ZIP metadata without copying every PK4 into WASM memory. Keep writable saves/configs separate. A hard refresh reuses valid chunks; a code release does not invalidate unchanged retail data.
+Quake 4 data is multi-gigabyte. The current worker uses read-only WORKERFS over
+owner-selected browser `File` objects, so native ZIP seeks read only requested
+ranges without copying archives into WASM memory. Keep writable saves/configs
+separate and add an IDBFS/OPFS save mount before claiming save persistence. A
+hard refresh reuses the stored directory handle after the browser grants access;
+a code release does not invalidate unchanged retail data.
 
 Custom maps/mods use `/data/custom_maps` after compatibility validation. Do not add unreviewed PK4s automatically to campaign or MP rotation.
 
@@ -213,9 +229,29 @@ Use `/data/q4base` and `/data/custom_maps`. Build `linux/amd64` first. Block Doc
 3. Prove the native client/server build commands.
 4. Add the smallest Emscripten Meson platform option and compile immediately.
 5. Classify blockers and fix only the first meaningful one until a substantial WASM artifact exists.
-6. Return an engine-init browser handoff to Luna; do not use Chrome.
-7. Commit and push `devel`.
+6. Run one serialized Chromium smoke and record the exact boundary.
+7. Commit locally on `devel`; do not push unless the repository owner explicitly
+   starts a later publication task.
 
 ## Status handoff
 
-Report SP, MP, and bot milestones separately; exact commands; artifacts; assets; redistribution gate; browser test request; first renderer/platform blocker; and `Upstream contacted: no`.
+Report SP, MP, and bot milestones separately; exact commands; artifacts; assets;
+redistribution gate; browser test request; first renderer/platform blocker; and
+`Upstream contacted: no`.
+
+## Exact current build and test handoff
+
+```bash
+cd /path/to/quake4-wasm
+Q4WASM_EMSDK=/path/to/emsdk \
+OPENQ4_GAMELIBS_REPO=/path/to/pinned-openQ4-game \
+./scripts/build-web.sh
+python3 -m http.server 8095 --bind 127.0.0.1 --directory build/web
+```
+
+Open `http://127.0.0.1:8095/`, leave **Single Player** selected, choose the
+legally owned `q4base` folder, and record the first native log or renderer error.
+Repeat from a fresh tab with **Multiplayer**. Do not run both workers at once.
+The next honest blocker is browser execution with owner data, followed by the
+first WebGL/SDL/game-module error it exposes. Title screen, campaign, MP menu,
+input, audio, and saves remain unproven.
