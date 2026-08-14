@@ -28,6 +28,15 @@ The openQ4 runtime packs and each linked dependency have their own provenance an
 
 Release gate: generate an inventory from the exact staged payload, map every engine/content/dependency component to its source and license, preserve required notices, and resolve any unknown or incompatible item before publication. Repeat this inventory when the dependency graph or generated runtime packs change.
 
+## Evidence record (2026-08-14)
+
+- The canonical companion repository is [openQ4-game](https://github.com/themuffinator/openQ4-game). Its README identifies the source as Quake4SDK-derived and identifies the repository license as the Quake 4 Software Development Kit Limited Use License Agreement.
+- The repository currently publishes the associated [EULA.Development Kit.rtf](https://github.com/themuffinator/openQ4-game/blob/main/EULA.Development%20Kit.rtf). A read-only review records that its permitted-New-Creations section limits creations to operating with Quake 4 and discusses free distribution, while its distribution section discusses free-of-charge non-commercial copying, an accompanying-agreement condition, and a separate written agreement for commercial distribution.
+- Those statements are an engineering evidence record, not a legal interpretation. In particular, this document does not decide whether these compiled WebAssembly game modules qualify as the EULA's permitted New Creations, whether a Docker Hub publication satisfies every condition, or whether any additional third-party notice is required.
+- The exact local staging manifest currently records `gameLibsGitCommit: ""` and the ignored source root `.tmp/local-gamelibs`; no exact GameLibs revision or EULA copy is bound to the browser artifact. The current checkpoint image includes the compiled SP/MP modules but intentionally exposes the gate instead of claiming clearance.
+
+Decision status: OPEN. Before public publication, pin and retain the exact GameLibs source revision and EULA, inventory the staged modules and notices, and obtain the owner's distribution decision for the intended Docker Hub use.
+
 ## Browser and container gates
 
 - Keep retail data and SDK-derived source outside public Git and Docker build contexts.
