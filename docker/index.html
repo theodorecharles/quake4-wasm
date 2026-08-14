@@ -202,6 +202,10 @@
     if ((await handle.queryPermission({ mode: 'read' })) === 'granted') await accept(await filesFromHandle(handle));
   }).catch(reason => { console.warn('Could not restore q4base handle', reason); });
   if (new URLSearchParams(location.search).get('localdata') === '1') {
+    const requestedMode = new URLSearchParams(location.search).get('mode');
+    if (requestedMode === 'sp' || requestedMode === 'mp') {
+      document.querySelector('#mode').value = requestedMode;
+    }
     acceptLoopbackData();
   }
 })();

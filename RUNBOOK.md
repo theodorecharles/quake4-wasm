@@ -70,7 +70,8 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
   every required owner PK4 by exact size and ZIP header, then creates lazy,
   read-only files in the engine worker backed by same-origin range requests.
   This avoids both a picker and a multi-gigabyte browser-memory copy while the
-  normal deployment path remains owner-selected WORKERFS files.
+  normal deployment path remains owner-selected WORKERFS files. Add
+  `&mode=mp` for the separate multiplayer module; single-player is the default.
 - JavaScript syntax, all three WASM headers, generated WORKERFS linkage,
   launcher/worker staging equality, and a retail-package allowlist passed.
   Chromium rendered the owner-data gate and both folder controls. Automated
