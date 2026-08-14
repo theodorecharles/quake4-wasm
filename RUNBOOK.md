@@ -17,6 +17,15 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - openQ4 has native Single Player and Multiplayer and documents Arena Campaign/bot functionality, but it has no maintained Emscripten target.
 - The openQ4 game library derives from the Quake 4 SDK and retains SDK EULA terms. Complete a redistribution review before publishing compiled game-code binaries; do not assume the engine GPL automatically relicenses SDK game code or Raven assets.
 
+### Wave 2 native checkpoint (2026-08-13)
+
+- A read-only check found all 22 required `pak001.pk4` through `pak022.pk4` files and valid ZIP central directories for all 36 installed `q4base/*.pk4` files. Nothing in the Steam installation was changed or copied into the repository.
+- Meson debug builds produced Linux x64 client and dedicated executables plus SP/MP game modules. Meson's install step staged the runtime under ignored `.install/`.
+- The staged dedicated executable initialized the MP module against the installed retail data, completed its IPv4 self-test, reached common initialization, and shut down cleanly.
+- The staged client initialized the SDL3/OpenGL Wayland path and SP module against the installed retail data, reached common initialization, and shut down cleanly. This is an initialization baseline, not a gameplay or browser-playability result.
+- The separate current game-library checkout was unavailable. The local modules used for this build came from ignored historical source already present in this downstream repository's Git history, with ignored compatibility shims. They are build/runtime evidence only and are not release-qualified inputs.
+- The repository is Meson-based despite the earlier CMake wording below. No `Q4WASM_CLIENT` change is part of this checkpoint; the next compiler milestone is the smallest explicit Meson Emscripten client option and its first compile.
+
 ## Downstream-only rule
 
 Do not submit anything upstream. Do not open or comment on openQ4, id Software, or related pull requests, issues, discussions, or releases. Do not message maintainers. Never push to `upstream`. All generated work stays in `theodorecharles/quake4-wasm`.
