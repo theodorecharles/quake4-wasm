@@ -66,7 +66,7 @@ Never copy changes from `doom3-wasm` merely because both are id Tech 4; compare 
 
 Before web edits:
 
-1. Read openQ4's build documentation and CMake options completely.
+1. Read openQ4's build documentation and Meson options completely.
 2. Prove the native client without touching the Steam install.
 3. Prove the native dedicated server if present, or add a minimal server-only configuration from existing code.
 4. Record exact commit, compiler, dependencies, and runtime data path.
