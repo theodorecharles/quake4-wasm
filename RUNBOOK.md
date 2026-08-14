@@ -80,10 +80,11 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
   no engine/title/gameplay claim is made from that blocked smoke step.
 - A subsequent loopback-only Chromium smoke loaded the complete staged owner
   PK4 set through lazy range-backed files and reached the real native
-  single-player runtime. The worker remained alive and reported `Quake 4
-  single-player runtime initialized`; the canvas remained black, so this is an
-  owner-data/native-initialization result, not a menu, renderer, input, audio,
-  or gameplay claim. The next blocker is the first visible engine frame.
+  single-player and multiplayer runtimes. The workers remained alive and
+  reported `Quake 4 single-player runtime initialized` and `Quake 4
+  multiplayer runtime initialized`; both canvases remained black, so these are
+  owner-data/native-initialization results, not menu, renderer, input, audio, or
+  gameplay claims. The next blocker is the first visible engine frame.
 
 ## Downstream-only rule
 
