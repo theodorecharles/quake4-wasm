@@ -21,7 +21,12 @@ RUN mkdir -p /data/q4base /data/custom_maps \
         'The engine source is available at https://github.com/theodorecharles/quake4-wasm/tree/'"${VCS_REF}"'.' \
         'SDK-derived game-library source and its redistribution terms are not included in this image.' \
         'See /REDISTRIBUTION.md; do not publish until that gate is closed.' \
-        > /usr/share/nginx/html/REDISTRIBUTION-GATE.txt
+        > /usr/share/nginx/html/REDISTRIBUTION-GATE.txt \
+    && printf '%s\n' \
+        'Corresponding source for this engine checkpoint:' \
+        "https://github.com/theodorecharles/quake4-wasm/tree/${VCS_REF}" \
+        'This image contains engine/runtime code only; supply proprietary Quake 4 data through /data.' \
+        > /usr/share/nginx/html/SOURCE-OFFER.txt
 
 VOLUME ["/data"]
 EXPOSE 8088/tcp 28004/udp
