@@ -26,6 +26,11 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - The separate current game-library checkout was unavailable. The local modules used for this build came from ignored historical source already present in this downstream repository's Git history, with ignored compatibility shims. They are build/runtime evidence only and are not release-qualified inputs.
 - The repository is Meson-based despite the earlier CMake wording below. No `Q4WASM_CLIENT` change is part of this checkpoint; the next compiler milestone is the smallest explicit Meson Emscripten client option and its first compile.
 
+### Docker checkpoint (2026-08-14)
+
+- `scripts/build-docker.sh` builds `theodorecharles/quake4-wasm:checkpoint` for `linux/amd64` as an assetless status image only.
+- It deliberately contains no native/game binaries, PK4s, or browser client. Do not publish it as a Quake 4 release until `Q4WASM_CLIENT` exists and the SDK-derived game-library redistribution gate is complete.
+
 ## Downstream-only rule
 
 Do not submit anything upstream. Do not open or comment on openQ4, id Software, or related pull requests, issues, discussions, or releases. Do not message maintainers. Never push to `upstream`. All generated work stays in `theodorecharles/quake4-wasm`.

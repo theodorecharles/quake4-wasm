@@ -1,0 +1,14 @@
+.git
+.github
+.cache
+data
+runtime
+artifacts
+references
+.install
+.tmp
+*.pk4
+*.PK4
+builddir-*
+build*
+q4base
