@@ -5677,6 +5677,10 @@ static void SDL3_ParmsFromWindowParms(const renderWindowParms_t *src, glimpParms
 }
 
 static void SDL3_ApplyFramebufferDesc(const renderFramebufferDesc_t *desc) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	(void)desc;
+	return;
+#else
 	SDL_GL_ResetAttributes();
 	(void)SDL_GL_SetAttribute(SDL_GL_RED_SIZE, desc->redBits);
 	(void)SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, desc->greenBits);
@@ -5702,9 +5706,14 @@ static void SDL3_ApplyFramebufferDesc(const renderFramebufferDesc_t *desc) {
 	(void)SDL_GL_SetAttribute(
 		SDL_GL_CONTEXT_FLAGS,
 		desc->glDebugContext ? SDL_GL_CONTEXT_DEBUG_FLAG : 0);
+#endif
 }
 
 static bool SDL3_WindowServices_PrepareWindowSystem(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	common->Printf("SDL3: browser worker uses the transferred OffscreenCanvas directly\n");
+	return true;
+#else
 	SDL3_SetMouseHintDefaults();
 	Sys_SDL_ApplyVideoHintDefaults();
 
@@ -5739,6 +5748,7 @@ static bool SDL3_WindowServices_PrepareWindowSystem(void) {
 
 	SDL3_InitDesktopMode();
 	return true;
+#endif
 }
 
 // which API the live window was created for; a preserved window of the
@@ -5786,6 +5796,22 @@ static void SDL3_PinBundledMoltenVKLibrary(void) {
 
 static bool SDL3_WindowServices_CreateWindowForFramebuffer(const renderFramebufferDesc_t *desc, const renderWindowParms_t *parms,
 														   renderModuleWindowInfo_t *outInfo, bool *outReusedPreservedWindow) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	(void)desc;
+	if (outReusedPreservedWindow != NULL) {
+		*outReusedPreservedWindow = s_sdlWindow != NULL;
+	}
+	// GLimp uses the window pointer as an ownership/liveness token. It must not
+	// be passed to SDL on this branch; every window-service callback below has
+	// an explicit browser implementation.
+	s_sdlWindow = reinterpret_cast<SDL_Window *>(1);
+	SDL3_SetVidSize(parms->width, parms->height);
+	SDL3_SetUIViewport(0, 0, parms->width, parms->height);
+	SDL3_SetFullscreenState(false);
+	(void)Q4WASM_SetDirectCanvasSize(parms->width, parms->height);
+	SDL3_FillWindowInfo(outInfo);
+	return true;
+#else
 	const int requestedSurfaceKind = desc != NULL ? desc->surfaceKind : RENDER_SURFACE_GL;
 #if defined(OPENQ4_SDL3_DARWIN_HOST)
 	if (requestedSurfaceKind == RENDER_SURFACE_VULKAN) {
@@ -5850,19 +5876,37 @@ static bool SDL3_WindowServices_CreateWindowForFramebuffer(const renderFramebuff
 
 	SDL3_FillWindowInfo(outInfo);
 	return true;
+#endif
 }
 
 static void SDL3_WindowServices_DestroyAttemptWindow(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	s_sdlWindow = NULL;
+#else
 	if (s_sdlWindow != NULL) {
 		SDL_DestroyWindow(s_sdlWindow);
 		s_sdlWindow = NULL;
 	}
+#endif
 }
 
 static bool SDL3_WindowServices_ApplyScreenParms(const renderWindowParms_t *parms) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	if (parms == NULL || parms->width < 1 || parms->height < 1) {
+		return false;
+	}
+	if (!Q4WASM_SetDirectCanvasSize(parms->width, parms->height)) {
+		return false;
+	}
+	SDL3_SetVidSize(parms->width, parms->height);
+	SDL3_SetUIViewport(0, 0, parms->width, parms->height);
+	SDL3_SetFullscreenState(false);
+	return true;
+#else
 	glimpParms_t glimpParms;
 	SDL3_ParmsFromWindowParms(parms, glimpParms);
 	return SDL3_ApplyScreenParms(glimpParms);
+#endif
 }
 
 static void SDL3_WindowServices_RefreshNativeWindowHandles(renderModuleWindowInfo_t *outInfo) {
@@ -5873,12 +5917,20 @@ static void SDL3_WindowServices_RefreshNativeWindowHandles(renderModuleWindowInf
 }
 
 static void SDL3_WindowServices_NotifyWindowReady(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	win32.activeApp = true;
+	return;
+#else
 	win32.activeApp = true;
 	s_sdlFocusInputReleased = false;
 	win32.wglErrors = 0;
+#endif
 }
 
 static void SDL3_WindowServices_BeginWindowTeardown(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	return;
+#else
 	s_teardownPreserveWindow = s_preserveWindowOnShutdown && s_sdlWindow != NULL;
 
 	SDL3_DisableWindowAspectSnap();
@@ -5893,9 +5945,15 @@ static void SDL3_WindowServices_BeginWindowTeardown(void) {
 		(void)SDL_StopTextInput(s_sdlWindow);
 		s_sdlTextInputActive = false;
 	}
+#endif
 }
 
 static void SDL3_WindowServices_FinishWindowTeardown(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	s_sdlWindow = NULL;
+	win32.activeApp = false;
+	return;
+#else
 	if (s_sdlWindow && !s_teardownPreserveWindow) {
 		SDL_DestroyWindow(s_sdlWindow);
 		s_sdlWindow = NULL;
@@ -5922,6 +5980,7 @@ static void SDL3_WindowServices_FinishWindowTeardown(void) {
 
 	SDL3_ClearInputQueues();
 	s_teardownPreserveWindow = false;
+#endif
 }
 
 static void SDL3_WindowServices_GetDesktopResolution(int *width, int *height) {
@@ -5952,44 +6011,99 @@ static void SDL3_WindowServices_CountContextError(void) {
 }
 
 static void *SDL3_WindowServices_CreateGLContext(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	const int handle = Q4WASM_CreateDirectWebGLContext(0, 1, 1, 0);
+	return handle != 0 ? reinterpret_cast<void *>(static_cast<intptr_t>(handle)) : NULL;
+#else
 	if (!s_sdlWindow) {
 		return NULL;
 	}
 	return (void *)SDL_GL_CreateContext(s_sdlWindow);
+#endif
 }
 
 static bool SDL3_WindowServices_MakeGLContextCurrent(void *context) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	return emscripten_webgl_make_context_current(
+		static_cast<EMSCRIPTEN_WEBGL_CONTEXT_HANDLE>(reinterpret_cast<intptr_t>(context))) == EMSCRIPTEN_RESULT_SUCCESS;
+#else
 	if (!s_sdlWindow) {
 		return false;
 	}
 	return SDL_GL_MakeCurrent(s_sdlWindow, (SDL_GLContext)context);
+#endif
 }
 
 static void SDL3_WindowServices_DestroyGLContext(void *context) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	if (context != NULL) {
+		(void)emscripten_webgl_destroy_context(
+			static_cast<EMSCRIPTEN_WEBGL_CONTEXT_HANDLE>(reinterpret_cast<intptr_t>(context)));
+	}
+#else
 	if (context != NULL) {
 		(void)SDL_GL_DestroyContext((SDL_GLContext)context);
 	}
+#endif
 }
 
 static bool SDL3_WindowServices_IsGLContextCurrent(void *context) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	return context != NULL && emscripten_webgl_get_current_context() ==
+		static_cast<EMSCRIPTEN_WEBGL_CONTEXT_HANDLE>(reinterpret_cast<intptr_t>(context));
+#else
 	return s_sdlWindow != NULL && context != NULL
 		&& SDL_GL_GetCurrentWindow() == s_sdlWindow
 		&& SDL_GL_GetCurrentContext() == (SDL_GLContext)context;
+#endif
 }
 
 static bool SDL3_WindowServices_SwapGLWindow(void) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	return true;
+#else
 	return s_sdlWindow != NULL && SDL_GL_SwapWindow(s_sdlWindow);
+#endif
 }
 
 static bool SDL3_WindowServices_SetGLSwapInterval(int interval) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	(void)interval;
+	return true;
+#else
 	return SDL_GL_SetSwapInterval(interval);
+#endif
 }
 
 static bool SDL3_WindowServices_GetGLSwapInterval(int *outInterval) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	if (outInterval != NULL) {
+		*outInterval = 1;
+	}
+	return true;
+#else
 	return SDL_GL_GetSwapInterval(outInterval);
+#endif
 }
 
 static bool SDL3_WindowServices_GetGLAttribute(int attribute, int *outValue) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	if (outValue == NULL) {
+		return false;
+	}
+	switch (attribute) {
+		case RENDER_GLATTR_CONTEXT_MAJOR_VERSION: *outValue = 3; break;
+		case RENDER_GLATTR_CONTEXT_MINOR_VERSION: *outValue = 0; break;
+		case RENDER_GLATTR_CONTEXT_PROFILE_MASK: *outValue = RENDER_GLPROFILE_ES; break;
+		case RENDER_GLATTR_CONTEXT_FLAGS: *outValue = 0; break;
+		case RENDER_GLATTR_MULTISAMPLE_BUFFERS: *outValue = 0; break;
+		case RENDER_GLATTR_MULTISAMPLE_SAMPLES: *outValue = 0; break;
+		case RENDER_GLATTR_DEPTH_SIZE: *outValue = 24; break;
+		case RENDER_GLATTR_STENCIL_SIZE: *outValue = 8; break;
+		default: return false;
+	}
+	return true;
+#else
 	SDL_GLAttr sdlAttribute;
 	switch (attribute) {
 		case RENDER_GLATTR_CONTEXT_MAJOR_VERSION:	sdlAttribute = SDL_GL_CONTEXT_MAJOR_VERSION; break;
@@ -6014,10 +6128,15 @@ static bool SDL3_WindowServices_GetGLAttribute(int attribute, int *outValue) {
 		}
 	}
 	return true;
+#endif
 }
 
 static void *SDL3_WindowServices_GetGLProcAddress(const char *name) {
+#if defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
+	return emscripten_webgl_get_proc_address(name);
+#else
 	return (void *)SDL_GL_GetProcAddress(name);
+#endif
 }
 
 static const char *SDL3_WindowServices_GetVideoErrorString(void) {

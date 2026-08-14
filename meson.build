@@ -1051,10 +1051,12 @@ if host_system == 'emscripten'
     '-sLEGACY_GL_EMULATION=1',
     '-sMAIN_MODULE=1',
     '-sFORCE_FILESYSTEM=1',
-    '-sEXPORTED_RUNTIME_METHODS=FS,WORKERFS',
+    '-sEXPORTED_RUNTIME_METHODS=FS,WORKERFS,IDBFS',
     '-sALLOW_MEMORY_GROWTH=1',
+    '-sSTACK_SIZE=8388608',
     '-sEXIT_RUNTIME=0',
     '-lworkerfs.js',
+    '-lidbfs.js',
   ]
   emscripten_gl_dynamic_link_fix = files('tools/build/emscripten_gl_dynamic_link_fix.js')
   engine_link_args += '--post-js=' + emscripten_gl_dynamic_link_fix[0].full_path()

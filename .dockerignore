@@ -21,4 +21,12 @@ build*
 !build/web/baseoq4/
 !build/web/baseoq4/game-sp_wasm32.wasm
 !build/web/baseoq4/game-mp_wasm32.wasm
+!build/web/baseoq4/pak0.pk4
+!build/web/q4-worker.js
+!build/web/game-adapter.js
+!build/web/wasm-game.json
+!build/web/wasm-game-data.json
+!build/web/wasm-game-framework.json
+!build/web/quake4.ico
+!build/web/quake4-background.png
 q4base

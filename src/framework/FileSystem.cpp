@@ -6992,6 +6992,10 @@ idFileSystemLocal::StartBackgroundReadThread
 =================
 */
 void idFileSystemLocal::StartBackgroundDownloadThread() {
+#if defined(__EMSCRIPTEN__)
+	common->Printf( "Emscripten single-thread mode: background file worker disabled; reads run synchronously\n" );
+	return;
+#else
 	if ( !backgroundThread.threadHandle ) {
 		Sys_CreateThread( (xthread_t)BackgroundDownloadThread, NULL, THREAD_NORMAL, backgroundThread, "backgroundDownload", g_threads, &g_thread_count );
 		if ( !backgroundThread.threadHandle ) {
@@ -7000,6 +7004,7 @@ void idFileSystemLocal::StartBackgroundDownloadThread() {
 	} else {
 		common->Printf( "background thread already running\n" );
 	}
+#endif
 }
 
 /*
@@ -7008,6 +7013,9 @@ idFileSystemLocal::StopBackgroundDownloadThread
 =================
 */
 void idFileSystemLocal::StopBackgroundDownloadThread() {
+#if defined(__EMSCRIPTEN__)
+	return;
+#else
 	if ( backgroundThread.threadHandle ) {
 		Sys_DestroyThread( backgroundThread );
 	}
@@ -7027,6 +7035,7 @@ void idFileSystemLocal::StopBackgroundDownloadThread() {
 		bgl->completed = true;
 		bgl = next;
 	}
+#endif
 }
 
 /*
@@ -7035,6 +7044,22 @@ idFileSystemLocal::BackgroundDownload
 =================
 */
 void idFileSystemLocal::BackgroundDownload( backgroundDownload_t *bgl ) {
+#if defined(__EMSCRIPTEN__)
+	// The initial browser build intentionally avoids pthreads. File reads are
+	// infrequent enough to complete inline, while native URL downloads are not
+	// part of the owner-data path (the framework handles those before launch).
+	if ( bgl->opcode == DLTYPE_FILE ) {
+		bgl->f->Seek( bgl->file.position, FS_SEEK_SET );
+		bgl->f->Read( bgl->file.buffer, bgl->file.length );
+	} else {
+		bgl->url.status = DL_FAILED;
+		idStr::Copynz( bgl->url.dlerror,
+			"native background URL downloads are disabled in the browser",
+			MAX_STRING_CHARS );
+	}
+	bgl->completed = true;
+	return;
+#else
 	if ( bgl->opcode == DLTYPE_FILE ) {
 		if ( dynamic_cast<idFile_Permanent *>(bgl->f) ) {
 			// add the bgl to the background download list
@@ -7056,6 +7081,7 @@ void idFileSystemLocal::BackgroundDownload( backgroundDownload_t *bgl ) {
 		Sys_TriggerEvent();
 		Sys_LeaveCriticalSection();
 	}
+#endif
 }
 
 /*

@@ -42,6 +42,16 @@ If you have questions concerning this license or the applicable additional terms
 #include <SDL3/SDL_locale.h>
 #endif
 
+#if defined( __EMSCRIPTEN__ )
+#include <emscripten/emscripten.h>
+static void Q4WASM_InitStep( const char *text ) {
+	EM_ASM( { postMessage( { type: 'log', text: UTF8ToString( $0 ) } ); }, text );
+}
+#else
+static void Q4WASM_InitStep( const char * ) {
+}
+#endif
+
 #define	MAX_PRINT_MSG_SIZE	4096
 #define MAX_WARNING_LIST	256
 
@@ -6327,6 +6337,7 @@ idCommonLocal::Init
 */
 void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 	try {
+		Q4WASM_InitStep( "[quake4-wasm] initializing idLib" );
 
 		// set interface pointers used by idLib
 		idLib::sys			= sys;
@@ -6336,6 +6347,7 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 
 		// initialize idLib
 		idLib::Init();
+		Q4WASM_InitStep( "[quake4-wasm] parsing command line" );
 
 		// clear warning buffer
 		ClearWarnings( GAME_NAME " initialization" );
@@ -6348,6 +6360,7 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 			argv = args.GetArgs( &argc );
 		}
 		ParseCommandLine( argc, argv );
+		Q4WASM_InitStep( "[quake4-wasm] initializing commands and cvars" );
 
 		// init console command system
 		cmdSystem->Init();
@@ -6360,6 +6373,7 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 
 		// register all static CVars
 		idCVar::RegisterStaticVars();
+		Q4WASM_InitStep( "[quake4-wasm] static cvars registered" );
 
 		// print engine version
 		Printf( "%s\n", buildInfo.string );
@@ -6369,6 +6383,7 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 
 		// init the console so we can take prints
 		console->Init();
+		Q4WASM_InitStep( "[quake4-wasm] console initialized" );
 
 		// get architecture info
 		Sys_Init();
@@ -6389,6 +6404,7 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 
 		// init commands
 		InitCommands();
+		Q4WASM_InitStep( "[quake4-wasm] loading game and renderer" );
 
 #ifdef ID_WRITE_VERSION
 		config_compressor = idCompressor::AllocArithmetic();
@@ -6396,6 +6412,7 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 
 		// game specific initialization
 		InitGame();
+		Q4WASM_InitStep( "[quake4-wasm] game and renderer initialized" );
 
 		// dump parsed command line for diagnostics (only when developer + logFile are enabled)
 		if ( com_developer.GetBool() && com_logFile.GetInteger() ) {

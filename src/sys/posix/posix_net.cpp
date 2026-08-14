@@ -625,7 +625,17 @@ void Sys_InitNetworking(void)
 	// haven't been able to clearly pinpoint which standards or RFCs define SIOCGIFCONF, SIOCGIFADDR, SIOCGIFNETMASK ioctls
 	// it seems fairly widespread, in Linux kernel ioctl, and in BSD .. so let's assume it's always available on our targets
 
-#if defined( MACOS_X ) || defined( __APPLE__ )
+#if defined( __EMSCRIPTEN__ )
+	// Browsers do not expose host interfaces or SIOCGIFCONF. Keep the normal
+	// address classification code useful with an explicit loopback interface;
+	// a future multiplayer transport can layer WebSockets/WebRTC above it.
+	num_interfaces = 1;
+	netint[0].ip = INADDR_LOOPBACK;
+	netint[0].mask = 0xff000000u;
+	num_interfaces6 = 0;
+	common->Printf( "Sys_InitNetworking: browser loopback interface only\n" );
+	return;
+#elif defined( MACOS_X ) || defined( __APPLE__ )
 	unsigned int ip, mask;
 	struct ifaddrs *ifap, *ifp;
 	

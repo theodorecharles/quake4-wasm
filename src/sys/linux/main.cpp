@@ -40,6 +40,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
+#include "../../framework/Session_local.h"
 #endif
 
 #ifdef ID_MCHECK
@@ -1066,12 +1067,30 @@ static void Sys_HandlePendingQuitSignal( void ) {
 	common->Quit();
 }
 
+#if defined(__EMSCRIPTEN__)
+static int q4wasmLastBrowserState = -1;
+
+static void Q4WASM_ReportBrowserState( void ) {
+	const int state = !sessLocal.IsMapSpawned() ? 0 : ( sessLocal.IsGUIActive() ? 2 : 1 );
+	if ( state == q4wasmLastBrowserState ) {
+		return;
+	}
+	q4wasmLastBrowserState = state;
+	EM_ASM( {
+		postMessage( { type: 'engine-state', state: $0 === 1 ? 'gameplay' : ($0 === 2 ? 'paused' : 'menu') } );
+	}, state );
+}
+#endif
+
 /*
 ===============
 main
 ===============
 */
 int main(int argc, const char **argv) {
+#if defined(__EMSCRIPTEN__)
+	EM_ASM( { postMessage( { type: 'log', text: '[quake4-wasm] native main entered' } ); } );
+#endif
 #ifdef ID_MCHECK
 	// must have -lmcheck linkage
 	mcheck( abrt_func );
@@ -1079,7 +1098,10 @@ int main(int argc, const char **argv) {
 #endif
 	
 	Posix_EarlyInit( );
-#ifndef ID_DEDICATED
+#if defined(__EMSCRIPTEN__)
+	EM_ASM( { postMessage( { type: 'log', text: '[quake4-wasm] platform initialization complete' } ); } );
+#endif
+#if !defined(ID_DEDICATED) && !defined(__EMSCRIPTEN__)
 	Sys_ReportWaylandRuntime();
 	Sys_ShowSplash();
 #endif
@@ -1089,7 +1111,10 @@ int main(int argc, const char **argv) {
 	} else {
 		common->Init( 0, NULL, NULL );
 	}
-#ifndef ID_DEDICATED
+#if defined(__EMSCRIPTEN__)
+	EM_ASM( { postMessage( { type: 'log', text: '[quake4-wasm] common initialization complete' } ); } );
+#endif
+#if !defined(ID_DEDICATED) && !defined(__EMSCRIPTEN__)
 	Sys_DestroySplash();
 #endif
 
@@ -1101,6 +1126,7 @@ int main(int argc, const char **argv) {
 		[](void *) {
 			Sys_HandlePendingQuitSignal();
 			common->Frame();
+			Q4WASM_ReportBrowserState();
 		},
 		NULL,
 		0,

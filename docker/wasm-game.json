@@ -1,0 +1,71 @@
+{
+  "id": "quake4",
+  "kicker": "id Tech 4",
+  "defaultVariant": "quake4",
+  "description": "Run Quake 4 from your own registered game data.",
+  "displayMode": "dynamic",
+  "nativeManaged": true,
+  "syncBackbuffer": false,
+  "resizeTransition": "immediate",
+  "pointerWidth": 640,
+  "pointerHeight": 480,
+  "pointerFit": "contain",
+  "canvasWidth": 1280,
+  "canvasHeight": 720,
+  "maxDpr": 1,
+  "pointerLock": true,
+  "identity": true,
+  "graphics": true,
+  "advanced": true,
+  "profiles": [
+    { "value": "performance", "label": "Performance" },
+    { "value": "high", "label": "High" },
+    { "value": "ultra", "label": "Ultra" }
+  ],
+  "defaultProfile": "high",
+  "fpsTargets": [30, 60, 120],
+  "defaultFps": 60,
+  "defaultDynamicQuality": false,
+  "defaultPlayerName": "Kane",
+  "fullscreen": true,
+  "defaultFullscreen": false,
+  "icon": "/quake4.ico",
+  "background": "/quake4-background.png",
+  "backgroundPosition": "center",
+  "backgroundSize": "cover",
+  "adapter": "/game-adapter.js",
+  "variants": {
+    "quake4": {
+      "title": "Quake 4",
+      "description": "Play the Quake 4 single-player campaign.",
+      "loadingTitle": "Starting Quake 4…",
+      "icon": "/quake4.ico",
+      "pwa": {
+        "name": "Quake 4",
+        "shortName": "Quake 4",
+        "description": "Quake 4 single-player in the browser, using owner-provided game data.",
+        "themeColor": "#5f180d",
+        "backgroundColor": "#000000",
+        "icons": [
+          { "src": "/quake4-pwa.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+        ]
+      }
+    },
+    "quake4-mp": {
+      "title": "Quake 4 Multiplayer",
+      "description": "Open the Quake 4 multiplayer client.",
+      "loadingTitle": "Starting Quake 4 multiplayer…",
+      "icon": "/quake4.ico",
+      "pwa": {
+        "name": "Quake 4 Multiplayer",
+        "shortName": "Quake 4 MP",
+        "description": "Quake 4 multiplayer in the browser, using owner-provided game data.",
+        "themeColor": "#5f180d",
+        "backgroundColor": "#000000",
+        "icons": [
+          { "src": "/quake4-pwa.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+        ]
+      }
+    }
+  }
+}
