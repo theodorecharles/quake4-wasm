@@ -9,6 +9,8 @@ references
 .tmp
 *.pk4
 *.PK4
+*.pk3
+*.PK3
 content/
 builddir-*
 build*
