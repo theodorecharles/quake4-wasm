@@ -25,6 +25,7 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - The staged client initialized the SDL3/OpenGL Wayland path and SP module against the installed retail data, reached common initialization, and shut down cleanly. This is an initialization baseline, not a gameplay or browser-playability result.
 - The separate current game-library checkout was unavailable. The local modules used for this build came from ignored historical source already present in this downstream repository's Git history, with ignored compatibility shims. They are build/runtime evidence only and are not release-qualified inputs.
 - The repository is Meson-based despite the earlier CMake wording below. No `Q4WASM_CLIENT` change is part of this checkpoint; the next compiler milestone is the smallest explicit Meson Emscripten client option and its first compile.
+- A first Meson cross-configuration probe on 2026-08-14 used Emscripten 6.0.6 (`emcc`/`em++`, `wasm32`) with the current source and failed before dependency discovery at `meson.build:12`: `Unsupported host system for openQ4 Meson build: emscripten`. This is the first recorded Q4 platform blocker; no WASM object or executable was produced.
 
 ### Docker checkpoint (2026-08-14)
 
