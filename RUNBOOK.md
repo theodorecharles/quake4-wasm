@@ -30,15 +30,15 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 ### Emscripten browser checkpoint (2026-08-14)
 
 - `tools/cross/emscripten.ini` and `scripts/build-web.sh` configure Emscripten 6.0.6 (`emcc`/`em++`, `wasm32`) with Meson, SDL3's official Emscripten port, a single-thread browser loop, and explicit `MAIN_MODULE`/`SIDE_MODULE` boundaries.
-- A full cross build completed 483 Ninja build steps. The reproducible, retail-data-free web staging step emitted:
+- A full cross build completed 820 Ninja build steps against the pinned GameLibs revision `0c9c121ff337b1c6df129ecedcfe569e7c50c332`. The reproducible, retail-data-free web staging step emitted:
   - `openQ4-client_wasm32.js` (1,334,824 bytes);
-  - `openQ4-client_wasm32.wasm` (10,208,523 bytes);
-  - `baseoq4/game-sp_wasm32.wasm` (4,955,417 bytes);
-  - `baseoq4/game-mp_wasm32.wasm` (4,955,433 bytes).
+  - `openQ4-client_wasm32.wasm` (10,208,384 bytes);
+  - `baseoq4/game-sp_wasm32.wasm` (5,216,276 bytes);
+  - `baseoq4/game-mp_wasm32.wasm` (6,035,155 bytes).
 - The browser engine currently uses Emscripten's legacy fixed-function GL bridge as a temporary compatibility layer (`-sLEGACY_GL_EMULATION=1`) and has explicit no-op seams for remaining desktop-only calls. This is an engine-init checkpoint, not final WebGL 2 renderer correctness or gameplay parity. OpenAL is also a browser ABI stub while SDL3 owns the browser audio path.
 - The ignored staging directory contains only the four JS/WASM artifacts. `content/`, Steam `q4base`, PK4/Pak files, and local runtime trees are excluded from the Docker context; the checkpoint image layer scan found zero `.pk4`/`.pak` files.
 - The native Linux client was rebuilt after the platform changes. Meson now passes the enabled Linux X11 helper setting into source discovery, restoring the `NVCtrl.c` object that the client link requires.
-- The game modules were built from an ignored local GameLibs checkout. Per `docs/REDISTRIBUTION.md`, they are build evidence only until the exact SDK/EULA-derived redistribution scope is reviewed and recorded. Do not push this browser image publicly while that gate remains open.
+- The game modules were staged from the ignored, clean GameLibs checkout at `0c9c121ff337b1c6df129ecedcfe569e7c50c332`; the staging manifest records 1,361 files and `emscriptenCompat: true`. The corresponding EULA is retained outside Git/Docker and is recorded in `docs/REDISTRIBUTION.md`. Per that document, the modules remain build evidence only until the exact SDK/EULA-derived redistribution scope is decided. Do not push this browser image publicly while that gate remains open.
 - Local Docker validation: `theodorecharles/quake4-wasm:checkpoint` builds for `linux/amd64`, serves the health endpoint and all four artifacts, and its exported layers contain no retail package files. The landing page's `Validate artifacts` and `Launch client probe` controls are diagnostic only; no Chrome gameplay result is claimed yet.
 
 ### Docker checkpoint (2026-08-14)

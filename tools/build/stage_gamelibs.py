@@ -115,10 +115,11 @@ def patch_emscripten_game_compat(stage_root: Path) -> list[Path]:
 
     The upstream GameLibs sources select a long long event-argument overload
     on non-desktop-64-bit targets. On wasm32, the pointer-sized NULL and
-    intptr_t event arguments then become ambiguous; newer Clang also diagnoses
-    one bool-returning snapshot path with a bare return. Keep the source
+    intptr_t event arguments then become ambiguous; older source revisions also
+    had one bool-returning snapshot path with a bare return. Keep the source
     repository untouched and make these narrow adaptations only in the
-    generated staging tree.
+    generated staging tree. Newer source revisions already carry the safe
+    snapshot return and are accepted after that invariant is checked.
     """
     patched: list[Path] = []
 
@@ -141,17 +142,41 @@ def patch_emscripten_game_compat(stage_root: Path) -> list[Path]:
         "\tif ( player->spectating && player->spectator != clientNum && entities[ player->spectator ] ) {"
     )
     snapshot_replacement = snapshot_needle.replace("\t\treturn;", "\t\treturn false;")
+    already_compatible_needles = {
+        "game": (
+            "\tplayer = static_cast<idPlayer *>( entities[clientNum] );\n"
+            "\tif ( !player ) {\n"
+            "\t\treturn false;\n"
+            "\t}\n\n"
+            "\tif ( player->spectating && player->spectator != clientNum && entities[ player->spectator ] ) {"
+        ),
+        "mpgame": (
+            "\tif ( clientNum < MAX_CLIENTS ) {\n"
+            "\t\tplayer = static_cast<idPlayer *>( entities[ clientNum ] );\n"
+            "\t} else {\n"
+            "\t\tplayer = gameLocal.GetLocalPlayer();\n"
+            "\t}\n"
+            "\tif ( player == NULL || !player->IsType( idPlayer::GetClassType() ) ) {\n"
+            "\t\tcommon->Warning( \"ClientReadSnapshot: no valid local demo player\" );\n"
+            "\t\treturn false;\n"
+            "\t}\n\n"
+            "\tif ( player->spectating &&"
+        ),
+    }
     for module_name in ("game", "mpgame"):
         snapshot_path = stage_root / "src" / module_name / "Game_network.cpp"
         snapshot_source = snapshot_path.read_text(encoding="utf-8")
-        if snapshot_source.count(snapshot_needle) != 1:
+        snapshot_count = snapshot_source.count(snapshot_needle)
+        if snapshot_count == 1:
+            snapshot_path.write_text(
+                snapshot_source.replace(snapshot_needle, snapshot_replacement), encoding="utf-8"
+            )
+            patched.append(snapshot_path)
+            continue
+        if snapshot_count != 0 or snapshot_source.count(already_compatible_needles[module_name]) != 1:
             raise RuntimeError(
                 f"Emscripten GameLibs compatibility expected one {module_name} ClientReadSnapshot player guard"
             )
-        snapshot_path.write_text(
-            snapshot_source.replace(snapshot_needle, snapshot_replacement), encoding="utf-8"
-        )
-        patched.append(snapshot_path)
     return patched
 
 
