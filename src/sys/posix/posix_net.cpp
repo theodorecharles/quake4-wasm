@@ -1475,7 +1475,7 @@ int idTCP::Read(void *data, int size) {
 		return -1;
 	}
 
-#if defined(_GNU_SOURCE)
+#if defined(_GNU_SOURCE) && !defined(__EMSCRIPTEN__)
 	// handle EINTR interrupted system call with TEMP_FAILURE_RETRY -  this is probably GNU libc specific
 	if ( ( nbytes = TEMP_FAILURE_RETRY( read( fd, data, size ) ) ) == -1 ) {
 #else
@@ -1523,7 +1523,7 @@ int	idTCP::Write(void *data, int size) {
 		return -1;
 	}
 
-#if defined(_GNU_SOURCE)	
+#if defined(_GNU_SOURCE) && !defined(__EMSCRIPTEN__)
 	// handle EINTR interrupted system call with TEMP_FAILURE_RETRY -  this is probably GNU libc specific
 	#if defined( MSG_NOSIGNAL )
 	if ( ( nbytes = TEMP_FAILURE_RETRY( send( fd, data, size, MSG_NOSIGNAL ) ) ) == -1 ) {

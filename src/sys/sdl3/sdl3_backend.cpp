@@ -22,7 +22,7 @@ along with Doom 3 Source Code.  If not, see <http://www.gnu.org/licenses/>.
 ===========================================================================
 */
 
-#if defined(OPENQ4_SDL3_LINUX_HOST) || defined(OPENQ4_SDL3_DARWIN_HOST)
+#if defined(OPENQ4_SDL3_LINUX_HOST) || defined(OPENQ4_SDL3_DARWIN_HOST) || defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
 #define OPENQ4_SDL3_POSIX_HOST 1
 #endif
 

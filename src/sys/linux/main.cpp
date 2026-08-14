@@ -38,6 +38,10 @@ If you have questions concerning this license or the applicable additional terms
 #include <sys/types.h>
 #include <fcntl.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 #ifdef ID_MCHECK
 #include <mcheck.h>
 #endif
@@ -1092,8 +1096,20 @@ int main(int argc, const char **argv) {
 	Sys_HandlePendingQuitSignal();
 	Posix_LateInit( );
 
+#if defined(__EMSCRIPTEN__)
+	emscripten_set_main_loop_arg(
+		[](void *) {
+			Sys_HandlePendingQuitSignal();
+			common->Frame();
+		},
+		NULL,
+		0,
+		1
+	);
+#else
 	while (1) {
 		Sys_HandlePendingQuitSignal();
 		common->Frame();
 	}
+#endif
 }

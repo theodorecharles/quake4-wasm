@@ -1,10 +1,84 @@
 <!doctype html>
 <html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Quake 4 WASM checkpoint</title>
-<style>body{max-width:52rem;margin:4rem auto;padding:0 1.5rem;background:#111;color:#eee;font:16px/1.5 system-ui,sans-serif}code{color:#b9e6ff}.warn{color:#ffd166}</style>
-<h1>Quake 4 WASM checkpoint</h1>
-<p class="warn">This image is intentionally not a playable Quake 4 browser release.</p>
-<p>The current downstream checkpoint has native openQ4 client/dedicated evidence, but no Emscripten client. SDK-derived game-library redistribution review is also incomplete.</p>
-<p>Do not publish this status image as a game release. The next gate is <code>Q4WASM_CLIENT</code>, followed by the documented redistribution review.</p>
+<title>Quake 4 WASM client checkpoint</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.5 system-ui,sans-serif; }
+  body { max-width: 58rem; margin: 3rem auto; padding: 0 1.25rem; background: #111; color: #eee; }
+  button { margin: .4rem .5rem .8rem 0; padding: .65rem .9rem; font: inherit; }
+  canvas { display: block; width: 100%; max-width: 960px; aspect-ratio: 16 / 9; background: #000; }
+  code { color: #b9e6ff; }
+  .warn { color: #ffd166; }
+  .pass { color: #72db8c; }
+  .fail { color: #ff7b72; }
+  pre { min-height: 5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Quake 4 WASM client checkpoint</h1>
+  <p class="warn">This image contains the Emscripten client and SP/MP WASM modules, but no retail <code>q4base</code> data.</p>
+  <p>Use the validation button to verify the published artifacts. Launching the client is an engine-initialization probe; it does not claim campaign, multiplayer, or browser-playability parity.</p>
+  <button id="validate" type="button">Validate artifacts</button>
+  <button id="launch" type="button">Launch client probe</button>
+  <ul id="results" aria-live="polite"></ul>
+  <canvas id="canvas" width="1280" height="720" tabindex="0"></canvas>
+  <pre id="log" aria-live="polite"></pre>
+</main>
+<script>
+  const results = document.querySelector('#results');
+  const log = document.querySelector('#log');
+  const report = (message, passed) => {
+    const item = document.createElement('li');
+    item.className = passed ? 'pass' : 'fail';
+    item.textContent = `${passed ? 'PASS' : 'FAIL'}: ${message}`;
+    results.append(item);
+  };
+  const wasmMagic = bytes => bytes.length >= 4 &&
+    bytes[0] === 0x00 && bytes[1] === 0x61 && bytes[2] === 0x73 && bytes[3] === 0x6d;
+  const checkWasm = async path => {
+    const response = await fetch(path, { cache: 'no-store', headers: { Range: 'bytes=0-3' } });
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return response.ok && wasmMagic(bytes);
+  };
+
+  document.querySelector('#validate').addEventListener('click', async () => {
+    results.replaceChildren();
+    try {
+      const jsResponse = await fetch('/openQ4-client_wasm32.js', { method: 'HEAD', cache: 'no-store' });
+      report('Emscripten JavaScript glue is served', jsResponse.ok);
+      for (const path of [
+        '/openQ4-client_wasm32.wasm',
+        '/baseoq4/game-sp_wasm32.wasm',
+        '/baseoq4/game-mp_wasm32.wasm'
+      ]) {
+        report(`${path} has a valid WebAssembly header`, await checkWasm(path));
+      }
+      report('retail q4base data was not requested by this validation', true);
+    } catch (error) {
+      report(error.message, false);
+    }
+  });
+
+  document.querySelector('#launch').addEventListener('click', () => {
+    if (window.__openQ4ClientLoaded) return;
+    window.__openQ4ClientLoaded = true;
+    log.textContent = 'Loading openQ4-client_wasm32.js…\n';
+    window.Module = {
+      canvas: document.querySelector('#canvas'),
+      arguments: [],
+      locateFile: path => `/${path}`,
+      print: line => { log.textContent += `${line}\n`; },
+      printErr: line => { log.textContent += `ERR: ${line}\n`; },
+      onRuntimeInitialized: () => { log.textContent += 'WASM runtime initialized.\n'; }
+    };
+    const script = document.createElement('script');
+    script.src = '/openQ4-client_wasm32.js';
+    script.onerror = () => { log.textContent += 'ERR: failed to load Emscripten glue.\n'; };
+    document.head.append(script);
+  });
+</script>
+</body>
+</html>

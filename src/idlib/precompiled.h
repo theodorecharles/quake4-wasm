@@ -133,7 +133,45 @@ public:
 
 #endif // _WINDOWS
 
-#ifdef __linux__
+#if defined(__EMSCRIPTEN__)
+
+// Emscripten supplies a POSIX-like libc without defining __linux__. Keep the
+// idTech 4 ABI choices explicit instead of inheriting a desktop platform.
+#include <stddef.h>
+#include <limits.h>
+#include <float.h>
+
+#define __WITH_PB__
+#undef WIN32
+#undef _XBOX
+#undef _CONSOLE
+#define _OPENGL
+#define _LITTLE_ENDIAN
+#define _CASE_SENSITIVE_FILESYSTEM
+#define _USE_OPENAL
+#ifndef Q4SDK
+	#define Q4SDK_MD5R
+#endif
+#define NEWLINE "\n"
+#define _GLVAS_SUPPPORT
+#define RESTRICT
+#define TIME_THIS_SCOPE(x)
+#define ID_INLINE inline
+#define ID_INLINE_EXTERN inline
+#define ID_STATIC_TEMPLATE
+
+#ifndef ID_ALIGNMENTCHECKER_DEFINED
+#define ID_ALIGNMENTCHECKER_DEFINED
+class AlignmentChecker
+{
+public:
+	static void UpdateCount(void const * const ptr) {}
+	static void ClearCount() {}
+	static void Print() {}
+};
+#endif
+
+#elif defined(__linux__)
 
 // for offsetof
 #include <stddef.h>
@@ -453,4 +491,3 @@ const float MAX_BOUND_SIZE = 65536.0f;
 #endif	/* __cplusplus */
 
 #endif /* !__PRECOMPILED_H__ */
-

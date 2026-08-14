@@ -13,6 +13,13 @@ option(
 )
 
 option(
+  'q4wasm_client',
+  type: 'boolean',
+  value: false,
+  description: 'Enable the downstream Emscripten browser-client configuration; requires the emscripten host and an explicit web platform path.',
+)
+
+option(
   'build_games',
   type: 'boolean',
   value: true,

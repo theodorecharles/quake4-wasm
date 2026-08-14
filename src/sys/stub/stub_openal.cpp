@@ -21,7 +21,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #if !defined( __linux__ ) || !defined( ID_DEDICATED )
-	#error "stub_openal.cpp is only for Linux dedicated-server builds"
+#if !defined( __EMSCRIPTEN__ )
+	#error "stub_openal.cpp is only for Linux dedicated-server or Emscripten builds"
+#endif
 #endif
 
 #define AL_ALEXT_PROTOTYPES
@@ -87,9 +89,11 @@ void AL_APIENTRY alGetListenerf( ALenum, ALfloat* value ) AL_API_NOEXCEPT {
 	ZeroValues( value, 1 );
 }
 
+#if !defined( __EMSCRIPTEN__ )
 void* AL_APIENTRY alGetProcAddress( const ALchar* ) AL_API_NOEXCEPT {
 	return NULL;
 }
+#endif
 
 void AL_APIENTRY alGetSourcef( ALuint, ALenum, ALfloat* value ) AL_API_NOEXCEPT {
 	ZeroValues( value, 1 );
@@ -173,9 +177,11 @@ void ALC_APIENTRY alcGetIntegerv( ALCdevice*, ALCenum, const ALCsizei count, ALC
 	ZeroValues( values, count );
 }
 
+#if !defined( __EMSCRIPTEN__ )
 ALCvoid* ALC_APIENTRY alcGetProcAddress( ALCdevice*, const ALCchar* ) ALC_API_NOEXCEPT {
 	return NULL;
 }
+#endif
 
 const ALCchar* ALC_APIENTRY alcGetString( ALCdevice*, ALCenum ) ALC_API_NOEXCEPT {
 	return openalEmptyList;

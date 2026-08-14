@@ -1010,7 +1010,11 @@ void Posix_LateInit( void ) {
 	common->Printf( "Video memory: %s\n", Sys_FormatMemoryMB( Sys_GetVideoRam() ).c_str() );
 #endif
 	Posix_ConsoleLateInit();
+#if !defined(__EMSCRIPTEN__)
 	Posix_StartAsyncThread( );
+#else
+	common->Printf( "Emscripten single-thread mode: async worker disabled; frame loop owns simulation ticks\n" );
+#endif
 }
 
 /*

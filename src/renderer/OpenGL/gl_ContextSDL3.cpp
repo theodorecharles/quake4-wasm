@@ -591,7 +591,7 @@ void GLimp_DeactivateContext(void) {
 	}
 }
 
-#if defined(OPENQ4_SDL3_LINUX_HOST)
+#if defined(OPENQ4_SDL3_LINUX_HOST) || defined(OPENQ4_SDL3_EMSCRIPTEN_HOST)
 typedef void ( *openQ4GlewProcAddress_t ) (void);
 
 extern "C" openQ4GlewProcAddress_t OpenQ4_GlewGetProcAddress(const unsigned char *name) {

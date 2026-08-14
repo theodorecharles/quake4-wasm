@@ -189,6 +189,16 @@ SDL3_DARWIN_SOURCES = (
     "sys/osx/macosx_sdl3_main.cpp",
 )
 
+SDL3_EMSCRIPTEN_SOURCES = (
+    "sys/posix/posix_main.cpp",
+    "sys/posix/posix_net.cpp",
+    "sys/posix/posix_signal.cpp",
+    "sys/posix/posix_syscon.cpp",
+    "sys/posix/posix_threads.cpp",
+    "sys/linux/main.cpp",
+    "sys/emscripten/emscripten_sdl3.cpp",
+)
+
 LINUX_PLATFORM_SOURCES = (
     "sys/posix/posix_input.cpp",
     "sys/posix/posix_main.cpp",
@@ -279,7 +289,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--host-system",
-        choices=("windows", "linux", "darwin"),
+        choices=("windows", "linux", "darwin", "emscripten"),
         default="windows",
         help="Meson host system for source selection.",
     )
@@ -431,6 +441,9 @@ def main(argv: list[str]) -> int:
                 SDL3_DARWIN_SOURCES if args.platform_backend == "sdl3" else DARWIN_PLATFORM_SOURCES
             )
             for rel_path in platform_sources:
+                add_required_source(source_set, ordered_sources, source_root, rel_path)
+        elif args.host_system == "emscripten":
+            for rel_path in SDL3_EMSCRIPTEN_SOURCES:
                 add_required_source(source_set, ordered_sources, source_root, rel_path)
         else:
             print(f"Unsupported host system: {args.host_system}", file=sys.stderr)

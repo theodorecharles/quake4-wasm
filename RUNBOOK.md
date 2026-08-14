@@ -14,7 +14,7 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - Original engine reference belongs in ignored `references/doom3-source/` because Quake 4 is id Tech 4 and no complete Quake 4 GPL source release exists.
 - Steam app 2210 is complete at `/home/ted/.steam/debian-installation/steamapps/common/Quake 4`.
 - Retail data is present under `q4base/`, including the installed PK4 set and multiplayer/game PK4s.
-- openQ4 has native Single Player and Multiplayer and documents Arena Campaign/bot functionality, but it has no maintained Emscripten target.
+- openQ4 has native Single Player and Multiplayer and documents Arena Campaign/bot functionality. This downstream now has a reproducible Emscripten browser-client checkpoint; it is not yet a release claim for renderer parity, game-library redistribution, or retail-data hosting.
 - The openQ4 game library derives from the Quake 4 SDK and retains SDK EULA terms. Complete a redistribution review before publishing compiled game-code binaries; do not assume the engine GPL automatically relicenses SDK game code or Raven assets.
 
 ### Wave 2 native checkpoint (2026-08-13)
@@ -24,13 +24,27 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - The staged dedicated executable initialized the MP module against the installed retail data, completed its IPv4 self-test, reached common initialization, and shut down cleanly.
 - The staged client initialized the SDL3/OpenGL Wayland path and SP module against the installed retail data, reached common initialization, and shut down cleanly. This is an initialization baseline, not a gameplay or browser-playability result.
 - The separate current game-library checkout was unavailable. The local modules used for this build came from ignored historical source already present in this downstream repository's Git history, with ignored compatibility shims. They are build/runtime evidence only and are not release-qualified inputs.
-- The repository is Meson-based despite the earlier CMake wording below. No `Q4WASM_CLIENT` change is part of this checkpoint; the next compiler milestone is the smallest explicit Meson Emscripten client option and its first compile.
-- A first Meson cross-configuration probe on 2026-08-14 used Emscripten 6.0.6 (`emcc`/`em++`, `wasm32`) with the current source and failed before dependency discovery at `meson.build:12`: `Unsupported host system for openQ4 Meson build: emscripten`. This is the first recorded Q4 platform blocker; no WASM object or executable was produced.
+- The repository is Meson-based despite the earlier CMake wording below. The downstream browser option is `q4wasm_client`; native builds remain on their existing paths.
+- The first Meson cross-configuration probe on 2026-08-14 recorded the initial host guard blocker at `meson.build:12` (`Unsupported host system for openQ4 Meson build: emscripten`). That blocker was resolved in the downstream platform seam described below; the probe produced no artifact and remains useful historical evidence.
+
+### Emscripten browser checkpoint (2026-08-14)
+
+- `tools/cross/emscripten.ini` and `scripts/build-web.sh` configure Emscripten 6.0.6 (`emcc`/`em++`, `wasm32`) with Meson, SDL3's official Emscripten port, a single-thread browser loop, and explicit `MAIN_MODULE`/`SIDE_MODULE` boundaries.
+- A full cross build completed 483 Ninja build steps. The reproducible, retail-data-free web staging step emitted:
+  - `openQ4-client_wasm32.js` (1,334,824 bytes);
+  - `openQ4-client_wasm32.wasm` (10,208,523 bytes);
+  - `baseoq4/game-sp_wasm32.wasm` (4,955,417 bytes);
+  - `baseoq4/game-mp_wasm32.wasm` (4,955,433 bytes).
+- The browser engine currently uses Emscripten's legacy fixed-function GL bridge as a temporary compatibility layer (`-sLEGACY_GL_EMULATION=1`) and has explicit no-op seams for remaining desktop-only calls. This is an engine-init checkpoint, not final WebGL 2 renderer correctness or gameplay parity. OpenAL is also a browser ABI stub while SDL3 owns the browser audio path.
+- The ignored staging directory contains only the four JS/WASM artifacts. `content/`, Steam `q4base`, PK4/Pak files, and local runtime trees are excluded from the Docker context; the checkpoint image layer scan found zero `.pk4`/`.pak` files.
+- The native Linux client was rebuilt after the platform changes. Meson now passes the enabled Linux X11 helper setting into source discovery, restoring the `NVCtrl.c` object that the client link requires.
+- The game modules were built from an ignored local GameLibs checkout. Per `docs/REDISTRIBUTION.md`, they are build evidence only until the exact SDK/EULA-derived redistribution scope is reviewed and recorded. Do not push this browser image publicly while that gate remains open.
+- Local Docker validation: `theodorecharles/quake4-wasm:checkpoint` builds for `linux/amd64`, serves the health endpoint and all four artifacts, and its exported layers contain no retail package files. The landing page's `Validate artifacts` and `Launch client probe` controls are diagnostic only; no Chrome gameplay result is claimed yet.
 
 ### Docker checkpoint (2026-08-14)
 
-- `scripts/build-docker.sh` builds `theodorecharles/quake4-wasm:checkpoint` for `linux/amd64` as an assetless status image only.
-- It deliberately contains no native/game binaries, PK4s, or browser client. Do not publish it as a Quake 4 release until `Q4WASM_CLIENT` exists and the SDK-derived game-library redistribution gate is complete.
+- `scripts/build-docker.sh` builds `theodorecharles/quake4-wasm:checkpoint` for `linux/amd64` from the four ignored web artifacts only. It is a browser-client checkpoint, not a public release.
+- It deliberately excludes retail PK4/Pak data and all proprietary Steam paths. Do not publish it as a Quake 4 release until the SDK-derived game-library redistribution gate, renderer/audio parity review, and browser runtime tests are complete.
 
 ## Downstream-only rule
 
@@ -63,25 +77,25 @@ Then create a downstream Emscripten configuration:
 scripts/build-web.sh
 scripts/build-server.sh
 scripts/setup-data.sh
-cmake/Toolchain-Emscripten.cmake or CMakePresets.json
+tools/cross/emscripten.ini
 ```
 
-Use an explicit `Q4WASM_CLIENT` CMake option. Compile immediately and fix the first meaningful error. Keep native builds intact behind `__EMSCRIPTEN__` boundaries.
+Use the explicit Meson `q4wasm_client` option. Compile immediately and fix the first meaningful error. Keep native builds intact behind `__EMSCRIPTEN__` boundaries.
 
 ## First web reductions
 
 For the initial engine/title milestone:
 
 - single thread first;
-- SDL2 Emscripten video and input;
+- SDL3's Emscripten video and input port;
 - WebGL 2/GLES renderer;
 - static game/renderer linkage or deliberate side modules; no native `dlopen` assumptions;
 - no native process spawning, editors, crash handlers, CD-key dialogs, LAN broadcast, or voice capture;
-- browser-compatible audio path before OpenAL parity;
+- browser-compatible SDL3 audio path before OpenAL parity;
 - non-blocking Emscripten main loop;
 - diagnostics for every disabled subsystem.
 
-Disable nonessential BSE effects only as a named temporary unblocker. The final renderer must restore Quake 4 particles/effects because weapons, ambient scenes, and campaign feedback depend on them.
+Disable nonessential BSE effects only as a named temporary unblocker. The current checkpoint's legacy-GL bridge is an explicitly named compatibility reduction; the final renderer must restore a real WebGL 2 path and Quake 4 particles/effects because weapons, ambient scenes, and campaign feedback depend on them.
 
 ## Renderer strategy
 
@@ -181,7 +195,7 @@ Use `/data/q4base` and `/data/custom_maps`. Build `linux/amd64` first. Block Doc
 1. Finish/verify the openQ4 checkout and ignored Doom 3 source reference.
 2. Read licenses/EULAs and create `docs/REDISTRIBUTION.md` containing facts and release gates, not legal conclusions.
 3. Prove the native client/server build commands.
-4. Add the smallest Emscripten CMake platform option and compile immediately.
+4. Add the smallest Emscripten Meson platform option and compile immediately.
 5. Classify blockers and fix only the first meaningful one until a substantial WASM artifact exists.
 6. Return an engine-init browser handoff to Luna; do not use Chrome.
 7. Commit and push `devel`.

@@ -9,6 +9,14 @@ references
 .tmp
 *.pk4
 *.PK4
+content/
 builddir-*
 build*
+!build/
+!build/web/
+!build/web/openQ4-client_wasm32.js
+!build/web/openQ4-client_wasm32.wasm
+!build/web/baseoq4/
+!build/web/baseoq4/game-sp_wasm32.wasm
+!build/web/baseoq4/game-mp_wasm32.wasm
 q4base

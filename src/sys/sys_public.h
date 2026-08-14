@@ -133,8 +133,29 @@ class idStr;
 #endif
 
 
+// Emscripten/WebAssembly
+#ifdef __EMSCRIPTEN__
+
+#define BUILD_STRING                "emscripten-wasm32"
+#define BUILD_OS_ID                 2
+#define CPUSTRING                   "wasm32"
+#define CPU_EASYARGS                1
+
+#define _alloca                    alloca
+#define _alloca16( x )             ((void *)((((intptr_t)alloca( (x)+15 )) + 15) & ~15))
+#define ALIGN16( x )                __attribute__((aligned(16))) x
+#define PACKED                     __attribute__((packed))
+#define PATHSEPERATOR_STR          "/"
+#define PATHSEPERATOR_CHAR         '/'
+#define __cdecl
+#define ASSERT                      assert
+#define ID_INLINE                  inline
+#define ID_INLINE_EXTERN           inline
+#define ID_STATIC_TEMPLATE
+#define assertmem( x, y )
+
 // Linux
-#ifdef __linux__
+#elif defined(__linux__)
 
 #ifdef __i386__
 	#define	BUILD_STRING				"linux-x86"

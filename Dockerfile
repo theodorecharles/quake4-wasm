@@ -3,12 +3,13 @@
 FROM nginx:1.27-alpine
 
 ARG VCS_REF=unknown
-LABEL org.opencontainers.image.title="Quake 4 WASM checkpoint" \
-      org.opencontainers.image.description="Quake 4 native-only redistribution-gate status image; not a playable WASM release" \
+LABEL org.opencontainers.image.title="Quake 4 WASM client checkpoint" \
+      org.opencontainers.image.description="Quake 4 Emscripten client artifact checkpoint; no retail q4base data" \
       org.opencontainers.image.source="https://github.com/theodorecharles/quake4-wasm" \
       org.opencontainers.image.revision="$VCS_REF" \
       org.opencontainers.image.vendor="theodorecharles"
 
+COPY build/web/ /usr/share/nginx/html/
 COPY docker/index.html /usr/share/nginx/html/index.html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 

@@ -286,6 +286,11 @@ void idSysLocal::DLL_GetFileName( const char *baseName, char *dllName, int maxLe
 	} else {
 		idStr::snPrintf( dllName, maxLength, "%s" CPUSTRING ".dll", baseName );
 	}
+#elif defined( __EMSCRIPTEN__ )
+	// Browser side modules are wasm files loaded through the Emscripten
+	// dynamic-linking ABI; retain the explicit module name and omit native
+	// CPU suffixes because the target architecture is wasm32.
+	idStr::snPrintf( dllName, maxLength, "%s.wasm", baseName );
 #elif defined( __linux__ )
 	if ( explicitGameModuleName ) {
 		idStr::snPrintf( dllName, maxLength, "%s.so", baseName );
@@ -374,4 +379,3 @@ const char *Sys_TimeStampToStr( ID_TIME_T timeStamp ) {
 
 	return timeString;
 }
-

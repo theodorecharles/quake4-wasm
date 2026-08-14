@@ -110,6 +110,51 @@ def copy_game_sources(source_game_dir: Path, dest_game_dir: Path) -> list[Path]:
     return copy_regular_tree(source_game_dir, dest_game_dir)
 
 
+def patch_emscripten_game_compat(stage_root: Path) -> list[Path]:
+    """Apply source-local ABI fixes needed by the wasm32 compiler.
+
+    The upstream GameLibs sources select a long long event-argument overload
+    on non-desktop-64-bit targets. On wasm32, the pointer-sized NULL and
+    intptr_t event arguments then become ambiguous; newer Clang also diagnoses
+    one bool-returning snapshot path with a bare return. Keep the source
+    repository untouched and make these narrow adaptations only in the
+    generated staging tree.
+    """
+    patched: list[Path] = []
+
+    class_needle = "#if defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__)"
+    class_replacement = "#if defined(__EMSCRIPTEN__) || defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__)"
+    for module_name in ("game", "mpgame"):
+        class_path = stage_root / "src" / module_name / "gamesys" / "Class.h"
+        class_source = class_path.read_text(encoding="utf-8")
+        if class_source.count(class_needle) != 1:
+            raise RuntimeError(
+                f"Emscripten GameLibs compatibility expected one {module_name} idEventArg architecture guard"
+            )
+        class_path.write_text(class_source.replace(class_needle, class_replacement), encoding="utf-8")
+        patched.append(class_path)
+
+    snapshot_needle = (
+        "\tif ( !player ) {\n"
+        "\t\treturn;\n"
+        "\t}\n\n"
+        "\tif ( player->spectating && player->spectator != clientNum && entities[ player->spectator ] ) {"
+    )
+    snapshot_replacement = snapshot_needle.replace("\t\treturn;", "\t\treturn false;")
+    for module_name in ("game", "mpgame"):
+        snapshot_path = stage_root / "src" / module_name / "Game_network.cpp"
+        snapshot_source = snapshot_path.read_text(encoding="utf-8")
+        if snapshot_source.count(snapshot_needle) != 1:
+            raise RuntimeError(
+                f"Emscripten GameLibs compatibility expected one {module_name} ClientReadSnapshot player guard"
+            )
+        snapshot_path.write_text(
+            snapshot_source.replace(snapshot_needle, snapshot_replacement), encoding="utf-8"
+        )
+        patched.append(snapshot_path)
+    return patched
+
+
 def mirror_support_dir(source_dir: Path, dest_dir: Path) -> list[Path]:
     if dest_dir.exists():
         shutil.rmtree(dest_dir)
@@ -140,7 +185,14 @@ def staged_file_manifest(stage_root: Path, staged_files: list[Path]) -> list[dic
     return entries
 
 
-def write_stage_manifest(project_root: Path, gamelibs_root: Path, stage_root: Path, staged_files: list[Path]) -> None:
+def write_stage_manifest(
+    project_root: Path,
+    gamelibs_root: Path,
+    stage_root: Path,
+    staged_files: list[Path],
+    *,
+    emscripten_compat: bool,
+) -> None:
     manifest = {
         "format": 1,
         "projectRoot": project_root.as_posix(),
@@ -149,6 +201,7 @@ def write_stage_manifest(project_root: Path, gamelibs_root: Path, stage_root: Pa
         "gameLibsRoot": gamelibs_root.as_posix(),
         "gameLibsGitCommit": repo_git_value(gamelibs_root, "rev-parse", "--verify", "HEAD"),
         "gameLibsGitDirty": repo_git_dirty(gamelibs_root),
+        "emscriptenCompat": emscripten_compat,
         "fileCount": len(staged_files),
         "files": staged_file_manifest(stage_root, staged_files),
     }
@@ -199,12 +252,14 @@ def prepare_stage_root(stage_root: Path) -> None:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 4:
+    if len(argv) not in (4, 5) or (len(argv) == 5 and argv[4] != "--emscripten"):
         print(
-            "usage: stage_gamelibs.py <project-root> <gamelibs-root> <stage-root>",
+            "usage: stage_gamelibs.py <project-root> <gamelibs-root> <stage-root> [--emscripten]",
             file=sys.stderr,
         )
         return 2
+
+    emscripten_compat = len(argv) == 5
 
     raw_project_root = Path(argv[1])
     raw_gamelibs_root = Path(argv[2])
@@ -242,8 +297,16 @@ def main(argv: list[str]) -> int:
         staged_files = []
         for module_name, source_game_dir in source_game_dirs.items():
             staged_files += copy_game_sources(source_game_dir, stage_root / "src" / module_name)
+        if emscripten_compat:
+            patch_emscripten_game_compat(stage_root)
         staged_files += mirror_project_support_dirs(project_root, stage_root)
-        write_stage_manifest(project_root, gamelibs_root, stage_root, staged_files)
+        write_stage_manifest(
+            project_root,
+            gamelibs_root,
+            stage_root,
+            staged_files,
+            emscripten_compat=emscripten_compat,
+        )
         validate_stage_manifest(stage_root)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)

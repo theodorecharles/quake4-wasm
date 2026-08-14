@@ -8,7 +8,7 @@ project(
 
 host_system = host_machine.system()
 host_cpu_family = host_machine.cpu_family()
-if not ['windows', 'linux', 'darwin'].contains(host_system)
+if not ['windows', 'linux', 'darwin', 'emscripten'].contains(host_system)
   error('Unsupported host system for openQ4 Meson build: ' + host_system)
 endif
 
@@ -27,6 +27,8 @@ if host_system == 'windows'
   game_module_filename_suffix = '.dll'
 elif host_system == 'darwin'
   game_module_filename_suffix = '.dylib'
+elif host_system == 'emscripten'
+  game_module_filename_suffix = '.wasm'
 endif
 engine_client_binary_name = meson.project_name() + '-client_' + binary_arch
 engine_ded_binary_name = meson.project_name() + '-ded_' + binary_arch
@@ -69,6 +71,10 @@ elif host_system == 'darwin'
       'platform_backend=native on macOS is comparison-only diagnostic infrastructure. '
       + 'Release packages use platform_backend=sdl3; do not treat the native Cocoa/OpenGL backend as supported release coverage.'
     )
+  endif
+elif host_system == 'emscripten'
+  if platform_backend_requested != 'sdl3'
+    error('The Emscripten browser target requires platform_backend=sdl3.')
   endif
 elif host_system != 'windows'
   error('Unsupported host system for platform backend selection: ' + host_system)
@@ -180,6 +186,16 @@ build_engine = get_option('build_engine')
 build_games = get_option('build_games')
 build_game_sp = get_option('build_game_sp')
 build_game_mp = get_option('build_game_mp')
+q4wasm_client = get_option('q4wasm_client')
+if q4wasm_client and host_system != 'emscripten'
+  error('q4wasm_client=true requires an Emscripten cross build.')
+endif
+if q4wasm_client and not build_engine
+  error('q4wasm_client=true requires build_engine=true.')
+endif
+if q4wasm_client and platform_backend_requested != 'sdl3'
+  error('q4wasm_client=true requires platform_backend=sdl3.')
+endif
 needs_game_headers = build_engine or build_games
 install_root_dir = meson.project_source_root() / '.install'
 install_game_dir = install_root_dir / 'baseoq4'
@@ -349,14 +365,17 @@ if needs_game_headers
     error('openQ4-game multiplayer source directory not found: ' + game_libs_source_root / 'mpgame')
   endif
 
-  game_stage_result = run_command(
+  game_stage_args = [
     py,
     meson.project_source_root() / 'tools' / 'build' / 'stage_gamelibs.py',
     meson.project_source_root(),
     game_libs_repo_root,
     meson.project_source_root() / '.tmp' / 'gamelibs_stage',
-    check: true,
-  )
+  ]
+  if host_system == 'emscripten'
+    game_stage_args += ['--emscripten']
+  endif
+  game_stage_result = run_command(game_stage_args, check: true)
   game_stage_root = game_stage_result.stdout().strip()
   if game_stage_root == ''
     error('Failed to stage game sources from openQ4-game.')
@@ -435,32 +454,10 @@ renderer_module_only_client = build_engine and get_option('build_renderer_gl') a
 # Phase B7: the Windows SDL3 ded keeps the renderer front-end but links no GL
 windows_gl_free_ded = build_engine and host_system == 'windows' and use_sdl3_backend
 
-engine_source_discovery = run_command(
-  py,
-  meson.project_source_root() / 'tools' / 'build' / 'meson_sources.py',
-  '--host-system',
-  host_system,
-  '--platform-backend',
-  platform_backend,
-  '--linux-x11-helpers',
-  linux_x11_helpers_enabled ? 'true' : 'false',
-  '--include-game',
-  'false',
-  '--renderer',
-  renderer_module_only_client ? 'module' : 'static',
-  check: true,
-)
-
-engine_source_paths = engine_source_discovery.stdout().strip().split('\n')
-if engine_source_paths.length() == 0
-  error('tools/build/meson_sources.py returned no engine source files.')
-endif
-
-dedicated_engine_source_paths = engine_source_paths
-if windows_gl_free_ded
-  # the Windows ded target keeps the static renderer (minus the GL link);
-  # discover its own list
-  dedicated_static_source_discovery = run_command(
+engine_source_paths = []
+dedicated_engine_source_paths = []
+if build_engine
+  engine_source_discovery = run_command(
     py,
     meson.project_source_root() / 'tools' / 'build' / 'meson_sources.py',
     '--host-system',
@@ -468,39 +465,64 @@ if windows_gl_free_ded
     '--platform-backend',
     platform_backend,
     '--linux-x11-helpers',
-    'false',
+    linux_x11_helpers_enabled ? 'true' : 'false',
     '--include-game',
     'false',
     '--renderer',
-    'static',
-    '--target-kind',
-    'dedicated',
+    renderer_module_only_client ? 'module' : 'static',
     check: true,
   )
-  dedicated_engine_source_paths = dedicated_static_source_discovery.stdout().strip().split('\n')
-  if dedicated_engine_source_paths.length() == 0
-    error('tools/build/meson_sources.py returned no Windows dedicated source files.')
+  engine_source_paths = engine_source_discovery.stdout().strip().split('\n')
+  if engine_source_paths.length() == 0
+    error('tools/build/meson_sources.py returned no engine source files.')
   endif
-endif
-if host_system == 'linux'
-  dedicated_engine_source_discovery = run_command(
-    py,
-    meson.project_source_root() / 'tools' / 'build' / 'meson_sources.py',
-    '--host-system',
-    host_system,
-    '--platform-backend',
-    platform_backend,
-    '--linux-x11-helpers',
-    'false',
-    '--include-game',
-    'false',
-    '--target-kind',
-    'dedicated',
-    check: true,
-  )
-  dedicated_engine_source_paths = dedicated_engine_source_discovery.stdout().strip().split('\n')
-  if dedicated_engine_source_paths.length() == 0
-    error('tools/build/meson_sources.py returned no Linux dedicated-server source files.')
+
+  dedicated_engine_source_paths = engine_source_paths
+  if windows_gl_free_ded
+    # the Windows ded target keeps the static renderer (minus the GL link);
+    # discover its own list
+    dedicated_static_source_discovery = run_command(
+      py,
+      meson.project_source_root() / 'tools' / 'build' / 'meson_sources.py',
+      '--host-system',
+      host_system,
+      '--platform-backend',
+      platform_backend,
+      '--linux-x11-helpers',
+      'false',
+      '--include-game',
+      'false',
+      '--renderer',
+      'static',
+      '--target-kind',
+      'dedicated',
+      check: true,
+    )
+    dedicated_engine_source_paths = dedicated_static_source_discovery.stdout().strip().split('\n')
+    if dedicated_engine_source_paths.length() == 0
+      error('tools/build/meson_sources.py returned no Windows dedicated source files.')
+    endif
+  endif
+  if host_system == 'linux'
+    dedicated_engine_source_discovery = run_command(
+      py,
+      meson.project_source_root() / 'tools' / 'build' / 'meson_sources.py',
+      '--host-system',
+      host_system,
+      '--platform-backend',
+      platform_backend,
+      '--linux-x11-helpers',
+      'false',
+      '--include-game',
+      'false',
+      '--target-kind',
+      'dedicated',
+      check: true,
+    )
+    dedicated_engine_source_paths = dedicated_engine_source_discovery.stdout().strip().split('\n')
+    if dedicated_engine_source_paths.length() == 0
+      error('tools/build/meson_sources.py returned no Linux dedicated-server source files.')
+    endif
   endif
 endif
 
@@ -546,6 +568,12 @@ openq4_renderer_gl_sources = files(renderer_gl_source_paths)
 openq4_engine_sources = files(engine_source_paths)
 if build_engine
   openq4_engine_sources += openq4_paks_generated_header
+  if host_system == 'emscripten'
+    # Emscripten has no OpenAL runtime. Keep the OpenAL ABI visible to the
+    # common sound code while the browser audio bridge is brought up through
+    # SDL3; this stub is a named temporary reduction, not audio parity.
+    openq4_engine_sources += files('src/sys/stub/stub_openal.cpp')
+  endif
 endif
 
 game_sp_sources = []
@@ -682,7 +710,7 @@ endif
 fallback_opt = ['default_library=static']
 glew_default_options = fallback_opt
 sdl3_default_options = fallback_opt
-if host_system == 'linux' and use_sdl3_backend
+if (host_system == 'linux' or host_system == 'emscripten') and use_sdl3_backend
   glew_default_options += ['openq4_sdl3_loader=true']
   if linux_x11_option.disabled()
     sdl3_default_options += ['x11=disabled']
@@ -701,7 +729,7 @@ sdl3_dep = disabler()
 macos_graphics_bridge_dep = disabler()
 deps = []
 if build_engine
-  if host_system == 'linux' and use_sdl3_backend
+  if (host_system == 'linux' or host_system == 'emscripten') and use_sdl3_backend
     glew_sp = subproject('glew', default_options: glew_default_options)
     glew_dep = glew_sp.get_variable('glew_dep')
     glew_dedicated_dep = glew_sp.get_variable('glew_dedicated_dep')
@@ -727,7 +755,14 @@ if build_engine
     default_options: fallback_opt,
   )
 
-  if host_system == 'darwin'
+  if host_system == 'emscripten'
+    # Emscripten's SDL3 port supplies the browser WebGL/audio implementation.
+    # Do not configure the desktop SDL3 subproject for the web host: its
+    # release-pinned source tree intentionally contains only desktop drivers.
+    openal_dep = declare_dependency(
+      include_directories: include_directories('subprojects/openal-soft-prebuilt/include'),
+    )
+  elif host_system == 'darwin'
     if macos_openal_provider == 'apple_framework'
       openal_dep = dependency('appleframeworks', modules: ['OpenAL'], required: true)
     else
@@ -768,7 +803,12 @@ if build_engine
   endif
 
   if use_sdl3_backend
-    if host_system == 'linux' and not linux_x11_option.auto()
+    if host_system == 'emscripten'
+      sdl3_dep = declare_dependency(
+        compile_args: ['-sUSE_SDL=3', '-sUSE_WEBGL2=1'],
+        link_args: ['-sUSE_SDL=3', '-sUSE_WEBGL2=1'],
+      )
+    elif host_system == 'linux' and not linux_x11_option.auto()
       # A system SDL's compiled video-driver set cannot be changed by a Meson
       # feature option. Explicit linux_x11 modes therefore select the bundled
       # SDL so enabled/disabled is a real build contract rather than a hint
@@ -846,6 +886,8 @@ if build_engine
     if use_macos_metal_bridge
       deps += [macos_graphics_bridge_dep]
     endif
+  elif host_system == 'emscripten'
+    deps += [sdl3_dep]
   endif
 endif
 
@@ -992,6 +1034,23 @@ if host_system == 'linux'
   engine_link_args += linux_link_hardening_args
   linux_module_link_hardening_args += linux_link_hardening_args
   linux_executable_pie = cpp.has_argument('-fPIE') and cc.has_argument('-fPIE') and cpp.has_link_argument('-pie')
+endif
+
+if host_system == 'emscripten'
+  # Browser executable: SDL3's Emscripten port owns the WebGL canvas and
+  # browser audio bridge. MAIN_MODULE keeps the documented side-module path
+  # available for the separately-built game WASM modules.
+  engine_link_args += [
+    '-sUSE_SDL=3',
+    '-sUSE_WEBGL2=1',
+    '-sMIN_WEBGL_VERSION=2',
+    '-sMAX_WEBGL_VERSION=2',
+    '-sLEGACY_GL_EMULATION=1',
+    '-sMAIN_MODULE=1',
+    '-sFORCE_FILESYSTEM=1',
+    '-sALLOW_MEMORY_GROWTH=1',
+    '-sEXIT_RUNTIME=0',
+  ]
 endif
 
 if use_sdl3_backend
@@ -1171,7 +1230,7 @@ if build_engine
     cpp_args: bse_cpp_args,
     c_args: bse_c_args,
     cpp_pch: pch_headers,
-    pic: host_system == 'linux',
+    pic: host_system == 'linux' or host_system == 'emscripten',
     install: false,
   )
 
@@ -1185,7 +1244,7 @@ if build_engine
     cpp_args: engine_cpp_args,
     c_args: engine_c_args,
     cpp_pch: pch_headers,
-    pic: host_system == 'linux',
+    pic: host_system == 'linux' or host_system == 'emscripten',
     install: false,
   )
 
@@ -1198,7 +1257,7 @@ if build_engine
     cpp_args: engine_cpp_args,
     c_args: engine_c_args,
     cpp_pch: pch_headers,
-    pic: host_system == 'linux',
+    pic: host_system == 'linux' or host_system == 'emscripten',
     install: false,
   )
 endif
@@ -1255,80 +1314,82 @@ if build_engine
     )
   endif
 
-  dedicated_engine_cpp_args = engine_cpp_args
-  dedicated_engine_c_args = engine_c_args
-  if host_system == 'linux'
-    dedicated_engine_cpp_args = []
-    foreach arg : engine_cpp_args
-      if not ['-DUSE_SDL3=1', '-DOPENQ4_HAVE_X11_HELPERS=1'].contains(arg)
-        dedicated_engine_cpp_args += arg
-      endif
-    endforeach
-    dedicated_engine_c_args = []
-    foreach arg : engine_c_args
-      if not ['-DUSE_SDL3=1', '-DOPENQ4_HAVE_X11_HELPERS=1'].contains(arg)
-        dedicated_engine_c_args += arg
-      endif
-    endforeach
-  endif
+  if host_system != 'emscripten'
+    dedicated_engine_cpp_args = engine_cpp_args
+    dedicated_engine_c_args = engine_c_args
+    if host_system == 'linux'
+      dedicated_engine_cpp_args = []
+      foreach arg : engine_cpp_args
+        if not ['-DUSE_SDL3=1', '-DOPENQ4_HAVE_X11_HELPERS=1'].contains(arg)
+          dedicated_engine_cpp_args += arg
+        endif
+      endforeach
+      dedicated_engine_c_args = []
+      foreach arg : engine_c_args
+        if not ['-DUSE_SDL3=1', '-DOPENQ4_HAVE_X11_HELPERS=1'].contains(arg)
+          dedicated_engine_c_args += arg
+        endif
+      endforeach
+    endif
 
-  dedicated_cpp_args = dedicated_engine_cpp_args + ['-DID_DEDICATED']
-  dedicated_c_args = dedicated_engine_c_args + ['-DID_DEDICATED']
-  if windows_gl_free_ded
-    # GLAPI=extern strips the dllimport decoration from GLEW's GL 1.1
-    # declarations so the dedicated GL stub's plain definitions link cleanly
-    dedicated_cpp_args += ['-DGLAPI=extern']
-    dedicated_c_args += ['-DGLAPI=extern']
-  endif
-  dedicated_objcpp_args = engine_objcpp_args + ['-DID_DEDICATED']
-  dedicated_objc_args = engine_objc_args + ['-DID_DEDICATED']
+    dedicated_cpp_args = dedicated_engine_cpp_args + ['-DID_DEDICATED']
+    dedicated_c_args = dedicated_engine_c_args + ['-DID_DEDICATED']
+    if windows_gl_free_ded
+      # GLAPI=extern strips the dllimport decoration from GLEW's GL 1.1
+      # declarations so the dedicated GL stub's plain definitions link cleanly
+      dedicated_cpp_args += ['-DGLAPI=extern']
+      dedicated_c_args += ['-DGLAPI=extern']
+    endif
+    dedicated_objcpp_args = engine_objcpp_args + ['-DID_DEDICATED']
+    dedicated_objc_args = engine_objc_args + ['-DID_DEDICATED']
 
-  if host_system == 'windows'
-    executable(
-      engine_ded_binary_name,
-      openq4_dedicated_sources,
-      include_directories: engine_include_dirs,
-      dependencies: dedicated_deps,
-      link_with: dedicated_link_with,
-      cpp_args: dedicated_cpp_args,
-      c_args: dedicated_c_args,
-      cpp_pch: pch_headers,
-      win_subsystem: 'windows',
-      link_args: engine_link_args,
-      install: true,
-      install_dir: install_root_dir,
-    )
-  elif host_system == 'darwin'
-    executable(
-      engine_ded_binary_name,
-      openq4_dedicated_sources,
-      include_directories: engine_include_dirs,
-      dependencies: dedicated_deps,
-      link_with: dedicated_link_with,
-      cpp_args: dedicated_cpp_args,
-      c_args: dedicated_c_args,
-      objcpp_args: dedicated_objcpp_args,
-      objc_args: dedicated_objc_args,
-      cpp_pch: pch_headers,
-      link_args: engine_link_args,
-      install: true,
-      install_dir: install_root_dir,
-    )
-  else
-    executable(
-      engine_ded_binary_name,
-      openq4_dedicated_sources,
-      include_directories: engine_include_dirs,
-      dependencies: dedicated_deps,
-      link_with: dedicated_link_with,
-      cpp_args: dedicated_cpp_args,
-      c_args: dedicated_c_args,
-      cpp_pch: pch_headers,
-      link_args: engine_link_args,
-      pie: linux_executable_pie,
-      install: true,
-      install_dir: install_root_dir,
-    )
+    if host_system == 'windows'
+      executable(
+        engine_ded_binary_name,
+        openq4_dedicated_sources,
+        include_directories: engine_include_dirs,
+        dependencies: dedicated_deps,
+        link_with: dedicated_link_with,
+        cpp_args: dedicated_cpp_args,
+        c_args: dedicated_c_args,
+        cpp_pch: pch_headers,
+        win_subsystem: 'windows',
+        link_args: engine_link_args,
+        install: true,
+        install_dir: install_root_dir,
+      )
+    elif host_system == 'darwin'
+      executable(
+        engine_ded_binary_name,
+        openq4_dedicated_sources,
+        include_directories: engine_include_dirs,
+        dependencies: dedicated_deps,
+        link_with: dedicated_link_with,
+        cpp_args: dedicated_cpp_args,
+        c_args: dedicated_c_args,
+        objcpp_args: dedicated_objcpp_args,
+        objc_args: dedicated_objc_args,
+        cpp_pch: pch_headers,
+        link_args: engine_link_args,
+        install: true,
+        install_dir: install_root_dir,
+      )
+    else
+      executable(
+        engine_ded_binary_name,
+        openq4_dedicated_sources,
+        include_directories: engine_include_dirs,
+        dependencies: dedicated_deps,
+        link_with: dedicated_link_with,
+        cpp_args: dedicated_cpp_args,
+        c_args: dedicated_c_args,
+        cpp_pch: pch_headers,
+        link_args: engine_link_args,
+        pie: linux_executable_pie,
+        install: true,
+        install_dir: install_root_dir,
+      )
+    endif
   endif
 endif
 
@@ -1371,6 +1432,11 @@ elif host_system == 'linux'
   linux_game_module_export_map = files('tools/build/linux_game_module.map')
   game_module_link_args += '-Wl,--version-script=' + linux_game_module_export_map[0].full_path()
   game_module_link_depends += linux_game_module_export_map
+elif host_system == 'emscripten'
+  # Game modules are intentionally emitted as Emscripten side modules during
+  # the first platform bring-up. The browser client will later choose between
+  # this ABI and a fully static game linkage after the engine target exists.
+  game_module_link_args += ['-sSIDE_MODULE=1']
 endif
 
 game_idlib_library = disabler()
@@ -1390,7 +1456,7 @@ if build_engine or build_games
     c_args: game_common_c_args,
     cpp_pch: game_idlib_pch_headers,
     override_options: game_target_override_options,
-    pic: host_system == 'linux',
+    pic: host_system == 'linux' or host_system == 'emscripten',
     gnu_symbol_visibility: host_system == 'windows' ? 'default' : 'hidden',
     install: false,
   )
@@ -1402,7 +1468,7 @@ if build_engine or build_games
     c_args: game_common_c_args,
     cpp_pch: game_idlib_pch_headers,
     override_options: game_target_override_options,
-    pic: host_system == 'linux',
+    pic: host_system == 'linux' or host_system == 'emscripten',
     gnu_symbol_visibility: host_system == 'windows' ? 'default' : 'hidden',
     install: false,
   )
@@ -1441,7 +1507,7 @@ if build_engine and (build_renderer_gl or build_renderer_vk)
     cpp_args: engine_cpp_args,
     c_args: engine_c_args,
     cpp_pch: pch_headers,
-    pic: host_system == 'linux',
+    pic: host_system == 'linux' or host_system == 'emscripten',
     install: false,
   )
 endif
@@ -1782,6 +1848,7 @@ summary(
     'C++ standard': get_option('cpp_std'),
     'Platform backend requested': platform_backend_requested,
     'Platform backend': platform_backend,
+    'Q4WASM browser client': q4wasm_client,
     'macOS graphics bridge': macos_graphics_bridge,
     'macOS OpenAL provider': macos_openal_provider,
     'OpenAL override root': openal_root_override == '' ? 'bundled/default' : openal_root_override,
@@ -1806,7 +1873,7 @@ summary(
     'OpenAL': openal_dep.found(),
     'stb_vorbis': stb_vorbis_dep.found(),
     'Precompiled headers': get_option('use_pch'),
-    'Dedicated server target': build_engine,
+    'Dedicated server target': build_engine and host_system != 'emscripten',
     'Linux dedicated headless link split': build_engine and host_system == 'linux',
     'Install root': install_root_dir,
   },
