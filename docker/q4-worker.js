@@ -1,7 +1,7 @@
 'use strict';
 
 self.onmessage = async event => {
-  const { canvas, files, mode } = event.data;
+  const { canvas, files = [], localUrls = [], mode } = event.data;
   self.onmessage = null;
   const post = (type, text) => self.postMessage({ type, text: String(text) });
   try {
@@ -32,9 +32,16 @@ self.onmessage = async event => {
       locateFile: path => new URL(path, self.location.href).href,
       preRun: [() => {
         FS.mkdir('/owner-data');
-        FS.mount(WORKERFS, {
-          blobs: files.map(file => ({ name: `q4base/${file.name}`, data: file }))
-        }, '/owner-data');
+        if (localUrls.length) {
+          FS.mkdir('/owner-data/q4base');
+          for (const entry of localUrls) {
+            FS.createLazyFile('/owner-data/q4base', entry.name, entry.url, true, false);
+          }
+        } else {
+          FS.mount(WORKERFS, {
+            blobs: files.map(file => ({ name: `q4base/${file.name}`, data: file }))
+          }, '/owner-data');
+        }
         FS.mkdir('/baseoq4');
         FS.mkdir('/save');
         FS.writeFile('/baseoq4/pak0.pk4', new Uint8Array(enginePak), { canOwn: true });

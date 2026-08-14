@@ -66,12 +66,23 @@ Ship Quake 4's real single-player campaign and multiplayer in a browser using op
 - The worker mounts the source-derived OpenQ4 pack and selected SP/MP side
   module in MEMFS, then points the native filesystem at `/owner-data/q4base`.
   SP and MP remain separate runtime choices and are not conflated in status.
+- The portfolio's loopback-only Docker lab can use `?localdata=1`: it verifies
+  every required owner PK4 by exact size and ZIP header, then creates lazy,
+  read-only files in the engine worker backed by same-origin range requests.
+  This avoids both a picker and a multi-gigabyte browser-memory copy while the
+  normal deployment path remains owner-selected WORKERFS files.
 - JavaScript syntax, all three WASM headers, generated WORKERFS linkage,
   launcher/worker staging equality, and a retail-package allowlist passed.
   Chromium rendered the owner-data gate and both folder controls. Automated
   owner-folder injection could not proceed because the installed ChatGPT
   Chrome extension lacks its optional **Allow access to file URLs** permission;
   no engine/title/gameplay claim is made from that blocked smoke step.
+- A subsequent loopback-only Chromium smoke loaded the complete staged owner
+  PK4 set through lazy range-backed files and reached the real native
+  single-player runtime. The worker remained alive and reported `Quake 4
+  single-player runtime initialized`; the canvas remained black, so this is an
+  owner-data/native-initialization result, not a menu, renderer, input, audio,
+  or gameplay claim. The next blocker is the first visible engine frame.
 
 ## Downstream-only rule
 

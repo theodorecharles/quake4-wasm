@@ -122,7 +122,7 @@
     if (failures.length) throw new Error(`This is not the expected Steam q4base set:\n${failures.join('\n')}`);
     return files.filter(file => file.name.toLowerCase().endsWith('.pk4'));
   }
-  async function launch(files) {
+  async function launch(files, localUrls = []) {
     if (started) return;
     started = true;
     choose.disabled = chooseFiles.disabled = resume.disabled = true;
@@ -142,11 +142,39 @@
       }
     };
     worker.onerror = event => { status.textContent = `Worker failed: ${event.message}`; };
-    worker.postMessage({ canvas: offscreen, files, mode: document.querySelector('#mode').value }, [offscreen]);
+    worker.postMessage({ canvas: offscreen, files, localUrls, mode: document.querySelector('#mode').value }, [offscreen]);
   }
   async function accept(files) {
     try { await launch(validate(Array.from(files))); }
     catch (reason) { error.textContent = reason instanceof Error ? reason.message : String(reason); }
+  }
+
+  async function acceptLoopbackData() {
+    try {
+      const localUrls = [];
+      for (const [name, expectedSize] of REQUIRED) {
+        status.textContent = `Validating local ${name}…`;
+        const url = new URL(`/local-data/q4base/${encodeURIComponent(name)}`, location.href);
+        const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        const size = Number(head.headers.get('content-length'));
+        if (!head.ok || size !== expectedSize) {
+          throw new Error(`${name}: ${head.ok ? size : `HTTP ${head.status}`} bytes, expected ${expectedSize}`);
+        }
+        const probe = await fetch(url, {
+          headers: { Range: 'bytes=0-3' }, cache: 'no-store'
+        });
+        const magic = new Uint8Array(await probe.arrayBuffer()).subarray(0, 4);
+        if (magic.length !== 4 || magic[0] !== 0x50 || magic[1] !== 0x4b
+            || magic[2] !== 0x03 || magic[3] !== 0x04) {
+          throw new Error(`${name}: invalid PK4 header`);
+        }
+        localUrls.push({ name, url: url.href });
+      }
+      await launch([], localUrls);
+    } catch (reason) {
+      error.textContent = reason instanceof Error ? reason.message : String(reason);
+      status.textContent = 'Local owner-data validation failed.';
+    }
   }
 
   choose.addEventListener('click', async () => {
@@ -173,6 +201,9 @@
     resume.hidden = false;
     if ((await handle.queryPermission({ mode: 'read' })) === 'granted') await accept(await filesFromHandle(handle));
   }).catch(reason => { console.warn('Could not restore q4base handle', reason); });
+  if (new URLSearchParams(location.search).get('localdata') === '1') {
+    acceptLoopbackData();
+  }
 })();
 </script>
 </body>

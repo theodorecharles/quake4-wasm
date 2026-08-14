@@ -64,6 +64,7 @@ cp "${build_dir}/openQ4-client_wasm32.wasm" "${web_dir}/openQ4-client_wasm32.was
 cp "${build_dir}/baseoq4/game-sp_wasm32.wasm" "${web_dir}/baseoq4/game-sp_wasm32.wasm"
 cp "${build_dir}/baseoq4/game-mp_wasm32.wasm" "${web_dir}/baseoq4/game-mp_wasm32.wasm"
 cp "${build_dir}/baseoq4/pak0.pk4" "${web_dir}/baseoq4/pak0.pk4"
+chmod 0644 "${web_dir}/baseoq4/pak0.pk4"
 cp "${repo_root}/docker/index.html" "${web_dir}/index.html"
 cp "${repo_root}/docker/q4-worker.js" "${web_dir}/q4-worker.js"
 
